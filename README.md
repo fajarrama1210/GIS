@@ -120,3 +120,26 @@ VITE_GEOJSON_URL=http://localhost/GIS/backend/jember_kecamatan.geojson
 - CSRF token di-generate server dan dikirim di header `X-CSRF-Token`
 - Session cookie tidak diekspos ke JavaScript (`httpOnly` via PHP session)
 - Error message server tidak membocorkan informasi sensitif
+
+---
+
+## Deploy ke server sendiri dengan Dokploy
+
+Repository ini menyediakan `docker-compose.yml` untuk menjalankan frontend, API PHP, dan MySQL. MySQL hanya tersedia di jaringan internal Compose; hanya service `web` yang perlu dihubungkan ke domain.
+
+1. Di Dokploy, buat aplikasi **Docker Compose** dari repository GitHub ini dan pilih branch yang ingin di-deploy.
+2. Gunakan file Compose `docker-compose.yml` di root repository.
+3. Tambahkan environment variables berikut pada aplikasi di Dokploy. Gunakan password acak yang kuat; jangan commit nilainya ke Git.
+
+   | Variable | Nilai |
+   |---|---|
+   | `MYSQL_USER` | Nama user database non-root, misalnya `jember_app` |
+   | `MYSQL_PASSWORD` | Password kuat untuk user aplikasi |
+   | `MYSQL_ROOT_PASSWORD` | Password kuat untuk root MySQL |
+   | `VITE_API_URL` | `/backend/api` |
+
+4. Deploy aplikasi, lalu tambahkan domain ke service `web` pada port `80` dan aktifkan HTTPS di Dokploy.
+5. Sebelum domain dibuka untuk umum, ubah password admin bawaan (`admin` / `Admin123!`) dengan memperbarui `users.password_hash` di MySQL menggunakan hash bcrypt yang dibuat oleh PHP `password_hash()`. Panel saat ini tidak menyediakan fitur ganti password.
+6. Aktifkan **Auto Deploy** untuk aplikasi dan hubungkan webhook GitHub jika Dokploy meminta. Push ke branch yang dipilih akan memicu build dan deployment ulang secara otomatis.
+
+Data database disimpan di volume Docker `mysql_data`. `backend/database.sql` hanya diimpor saat volume database pertama kali dibuat; deployment berikutnya tidak menghapus data. Simpan backup database terpisah karena data di volume bukan pengganti backup. Menghapus volume akan menghapus database.

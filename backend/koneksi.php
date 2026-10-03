@@ -1,9 +1,9 @@
 <?php
 // Koneksi database MySQL — digunakan oleh seluruh API.
-$host = "localhost";
-$user = "root";
-$pass = "";
-$db   = "jember_db";
+$host = getenv('DB_HOST') ?: "localhost";
+$user = getenv('DB_USER') ?: "root";
+$pass = getenv('DB_PASSWORD') ?: "";
+$db   = getenv('DB_NAME') ?: "jember_db";
 
 $conn = new mysqli($host, $user, $pass, $db);
 

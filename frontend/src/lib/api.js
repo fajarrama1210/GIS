@@ -1,8 +1,9 @@
+// frontend/src/lib/api.js
 import axios from 'axios'
 import useAuthStore from '@/stores/authStore'
 
 const api = axios.create({
-  baseURL: 'http://localhost/GIS/backend/api',
+  baseURL: import.meta.env.VITE_API_URL || '/backend/api',
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 })
