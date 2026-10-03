@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import api from '@/lib/api'
 
 export function useKecamatan() {
@@ -6,16 +6,16 @@ export function useKecamatan() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     let cancelled = false
 
+    setLoading(true)
     api.get('/kecamatan.php')
       .then((res) => {
         if (cancelled) return
-        console.log('[useKecamatan] raw:', res.data)
         const rows = Array.isArray(res.data) ? res.data : (res.data && res.data.data) || []
-        console.log('[useKecamatan] rows:', rows.length)
         setData(rows)
+        setError(null)
       })
       .catch((err) => {
         if (cancelled) return
@@ -31,5 +31,9 @@ export function useKecamatan() {
     }
   }, [])
 
-  return { data, loading, error }
+  useEffect(() => {
+    return fetchData()
+  }, [fetchData])
+
+  return { data, loading, error, refetch: fetchData }
 }
