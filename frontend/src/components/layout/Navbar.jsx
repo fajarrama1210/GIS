@@ -1,18 +1,10 @@
 // Navbar halaman publik — logo, navigasi, dan toggle dark mode.
 import { Link, useLocation } from 'react-router-dom'
-import { Sun, Moon, Map } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Map } from 'lucide-react'
+import ThemeToggle from './ThemeToggle'
 
 export default function Navbar() {
   const location = useLocation()
-  const [dark, setDark] = useState(() => {
-    return localStorage.getItem('theme') === 'dark'
-  })
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', dark)
-    localStorage.setItem('theme', dark ? 'dark' : 'light')
-  }, [dark])
 
   return (
     <header className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800">
@@ -35,13 +27,7 @@ export default function Navbar() {
           >
             Admin
           </Link>
-          <button
-            onClick={() => setDark((d) => !d)}
-            aria-label="Toggle dark mode"
-            className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800 transition-fast"
-          >
-            {dark ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
+          <ThemeToggle />
         </div>
       </div>
     </header>

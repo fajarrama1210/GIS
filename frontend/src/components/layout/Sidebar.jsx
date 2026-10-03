@@ -4,6 +4,7 @@ import { LayoutDashboard, MapPin, LogOut, Map } from 'lucide-react'
 import api from '@/lib/api'
 import useAuthStore from '@/stores/authStore'
 import { cn } from '@/lib/utils'
+import ThemeToggle from './ThemeToggle'
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -54,9 +55,12 @@ export default function Sidebar() {
 
       {/* User info + logout */}
       <div className="p-3 border-t border-zinc-200 dark:border-zinc-800">
-        <div className="px-3 py-1.5 mb-1">
-          <p className="text-xs text-zinc-400 dark:text-zinc-500">Masuk sebagai</p>
-          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{user?.username}</p>
+        <div className="flex items-center justify-between gap-2 px-3 py-1.5 mb-1">
+          <div className="min-w-0">
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">Masuk sebagai</p>
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{user?.username}</p>
+          </div>
+          <ThemeToggle />
         </div>
         <button
           onClick={handleLogout}

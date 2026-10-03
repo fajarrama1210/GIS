@@ -130,6 +130,14 @@ export default function LoginPage() {
             >
               {isSubmitting ? 'Masuk...' : 'Masuk'}
             </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => navigate('/')}
+              className="w-full justify-center"
+            >
+              Kembali ke Beranda
+            </Button>
           </form>
         </div>
       </div>
