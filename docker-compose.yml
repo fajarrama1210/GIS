@@ -30,9 +30,9 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: jember_db
-      MYSQL_USER: root
-      MYSQL_PASSWORD: tefa2025bisa
-      # MYSQL_ROOT_PASSWORD: tefa2025bisa
+      MYSQL_USER: ${MYSQL_USER:?Set MYSQL_USER in Dokploy}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in Dokploy}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in Dokploy}
     volumes:
       - mysql_data:/var/lib/mysql
       - ./backend/database.sql:/docker-entrypoint-initdb.d/001-database.sql:ro
