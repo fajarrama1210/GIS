@@ -125,21 +125,23 @@ VITE_GEOJSON_URL=http://localhost/GIS/backend/jember_kecamatan.geojson
 
 ## Deploy ke server sendiri dengan Dokploy
 
-Repository ini menyediakan `docker-compose.yml` untuk menjalankan frontend, API PHP, dan MySQL. MySQL hanya tersedia di jaringan internal Compose; hanya service `web` yang perlu dihubungkan ke domain.
+Repository ini menyediakan `Dockerfile` di root untuk membangun frontend dan menjalankan API PHP dalam satu container. Container menggunakan service MySQL yang sudah dibuat di Dokploy.
 
-1. Di Dokploy, buat aplikasi **Docker Compose** dari repository GitHub ini dan pilih branch yang ingin di-deploy.
-2. Gunakan file Compose `docker-compose.yml` di root repository.
-3. Tambahkan environment variables berikut pada aplikasi di Dokploy. Gunakan password acak yang kuat; jangan commit nilainya ke Git.
+1. Di Dokploy, gunakan aplikasi bertipe **Dockerfile** yang terhubung ke repository GitHub ini, dan pilih branch yang ingin di-deploy.
+2. Atur **Build Path / Dockerfile Path** ke `Dockerfile` di root repository, dengan build context root repository (`.`).
+3. Tambahkan environment variables berikut pada aplikasi di Dokploy. Gunakan kredensial yang diberikan untuk service MySQL; jangan commit password ke Git.
 
    | Variable | Nilai |
    |---|---|
-   | `MYSQL_USER` | Nama user database non-root, misalnya `jember_app` |
-   | `MYSQL_PASSWORD` | Password kuat untuk user aplikasi |
-   | `MYSQL_ROOT_PASSWORD` | Password kuat untuk root MySQL |
+   | `MYSQL_HOST` | Host database Dokploy, misalnya `db-mysql-jtz5qu` |
+   | `MYSQL_PORT` | Port database, biasanya `3306` |
+   | `MYSQL_DATABASE` | `jember_db` |
+   | `MYSQL_USER` | User MySQL yang diberikan Dokploy |
+   | `MYSQL_PASSWORD` | Password untuk user tersebut |
    | `VITE_API_URL` | `/backend/api` |
 
-4. Deploy aplikasi, lalu tambahkan domain ke service `web` pada port `80` dan aktifkan HTTPS di Dokploy.
+4. Pastikan service aplikasi dapat menjangkau host database melalui jaringan Dokploy. Deploy aplikasi, lalu arahkan domain aplikasi ke container pada port `80` dan aktifkan HTTPS di Dokploy.
 5. Sebelum domain dibuka untuk umum, ubah password admin bawaan (`admin` / `Admin123!`) dengan memperbarui `users.password_hash` di MySQL menggunakan hash bcrypt yang dibuat oleh PHP `password_hash()`. Panel saat ini tidak menyediakan fitur ganti password.
 6. Aktifkan **Auto Deploy** untuk aplikasi dan hubungkan webhook GitHub jika Dokploy meminta. Push ke branch yang dipilih akan memicu build dan deployment ulang secara otomatis.
 
-Data database disimpan di volume Docker `mysql_data`. `backend/database.sql` hanya diimpor saat volume database pertama kali dibuat; deployment berikutnya tidak menghapus data. Simpan backup database terpisah karena data di volume bukan pengganti backup. Menghapus volume akan menghapus database.
+Impor `backend/database.sql` ke database `jember_db` melalui phpMyAdmin atau tool database Dokploy sebelum memakai aplikasi. Data database berada di service MySQL Dokploy. Simpan backup database terpisah. Alternatif deployment Docker Compose tetap tersedia di `docker-compose.yml`.

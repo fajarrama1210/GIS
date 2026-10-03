@@ -17,31 +17,8 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      DB_HOST: db
-      DB_NAME: jember_db
-      DB_USER: ${MYSQL_USER:?Set MYSQL_USER in Dokploy}
-      DB_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in Dokploy}
-    depends_on:
-      db:
-        condition: service_healthy
-
-  db:
-    image: mysql:8.4
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: jember_db
+      MYSQL_HOST: ${MYSQL_HOST:?Set MYSQL_HOST in Dokploy}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-jember_db}
       MYSQL_USER: ${MYSQL_USER:?Set MYSQL_USER in Dokploy}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in Dokploy}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in Dokploy}
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./backend/database.sql:/docker-entrypoint-initdb.d/001-database.sql:ro
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-
-volumes:
-  mysql_data:
