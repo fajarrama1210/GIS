@@ -113,7 +113,7 @@ export default function HomePage() {
           BPS Kabupaten Jember &mdash; 2024
         </p>
         <h1 className="text-3xl sm:text-4xl font-serif font-semibold text-zinc-900 dark:text-zinc-100 leading-tight">
-          Data Penduduk<br />
+          Data Kependudukan<br />
           <span className="text-jember-600">Kabupaten Jember</span>
         </h1>
         <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400 max-w-xl">
