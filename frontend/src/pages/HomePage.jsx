@@ -110,16 +110,15 @@ export default function HomePage() {
       {/* Hero */}
       <section>
         <p className="text-xs font-medium text-jember-600 uppercase tracking-widest mb-2">
-          DATA WILAYAH & KEPENDUDUKAN
+          BPS Kabupaten Jember &mdash; 2024
         </p>
         <h1 className="text-3xl sm:text-4xl font-serif font-semibold text-zinc-900 dark:text-zinc-100 leading-tight">
-          Peta dan Statistik<br />
-          <span className="text-jember-600">{scopeTitle}</span>
+          Data Penduduk<br />
+          <span className="text-jember-600">Kabupaten Jember</span>
         </h1>
         <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400 max-w-xl">
-          Jelajahi data wilayah dan statistik penduduk dengan memilih provinsi,
-          kabupaten/kota, dan kecamatan. Statistik bersumber dari BPS, dengan
-          data admin sebagai pelengkap saat nilai BPS tidak tersedia; batas wilayah dari BIG.
+          Visualisasi interaktif data kependudukan 31 kecamatan. Peta choropleth,
+          grafik perbandingan, dan tabel lengkap dengan data terkini BPS.
         </p>
       </section>
 

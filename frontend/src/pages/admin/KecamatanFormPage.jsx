@@ -11,14 +11,51 @@ import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 
+export const PROVINSI_LIST = [
+  'ACEH',
+  'BALI',
+  'BANGKA BELITUNG',
+  'BANTEN',
+  'BENGKULU',
+  'DAERAH ISTIMEWA YOGYAKARTA',
+  'DKI JAKARTA',
+  'GORONTALO',
+  'JAMBI',
+  'JAWA BARAT',
+  'JAWA TENGAH',
+  'JAWA TIMUR',
+  'KALIMANTAN BARAT',
+  'KALIMANTAN SELATAN',
+  'KALIMANTAN TENGAH',
+  'KALIMANTAN TIMUR',
+  'KALIMANTAN UTARA',
+  'KEPULAUAN RIAU',
+  'LAMPUNG',
+  'MALUKU',
+  'MALUKU UTARA',
+  'NUSA TENGGARA BARAT',
+  'NUSA TENGGARA TIMUR',
+  'PAPUA',
+  'PAPUA BARAT',
+  'RIAU',
+  'SULAWESI BARAT',
+  'SULAWESI SELATAN',
+  'SULAWESI TENGAH',
+  'SULAWESI TENGGARA',
+  'SULAWESI UTARA',
+  'SUMATERA BARAT',
+  'SUMATERA SELATAN',
+  'SUMATERA UTARA',
+]
+
 const schema = z.object({
   kode_kecamatan:   z.string()
     .optional()
     .or(z.literal(''))
     .refine((code) => !code || /^\d{7}$/.test(code), 'Kode harus 7 digit atau kosongkan untuk dibuat otomatis'),
   nama_kecamatan:   z.string().min(2, 'Min 2 karakter').max(50, 'Maks 50 karakter'),
-  jumlah_penduduk:  z.coerce.number().int('Harus bilangan bulat').min(1, 'Min 1').max(1000000, 'Maks 1.000.000'),
-  laju_pertumbuhan: z.coerce.number().min(-5, 'Min -5').max(10, 'Maks 10'),
+  jumlah_penduduk:  z.coerce.number().int('Harus bilangan bulat').min(1, 'Min 1'),
+  laju_pertumbuhan: z.coerce.number().min(-10, 'Min -10').max(20, 'Maks 20'),
   luas_wilayah:     z.coerce.number().min(0.01, 'Min 0.01'),
   jumlah_faskes:    z.coerce.number().int().min(0).optional().default(0),
   jumlah_rentan:    z.coerce.number().int().min(0).optional().default(0),
@@ -53,7 +90,22 @@ export default function KecamatanFormPage() {
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm({ resolver: zodResolver(schema) })
+  } = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      provinsi: 'JAWA TIMUR',
+      kabupaten: 'Kabupaten Jember',
+      kode_kecamatan: '',
+      nama_kecamatan: '',
+      jumlah_penduduk: '',
+      laju_pertumbuhan: '',
+      luas_wilayah: '',
+      jumlah_faskes: '0',
+      jumlah_rentan: '0',
+      latitude: '',
+      longitude: '',
+    },
+  })
 
   useEffect(() => {
     let active = true
@@ -164,8 +216,11 @@ export default function KecamatanFormPage() {
           <ArrowLeft size={13} /> Kembali ke Daftar
         </button>
         <h1 className="text-2xl font-serif font-semibold text-zinc-900 dark:text-zinc-100">
-          {isEdit ? 'Edit Kecamatan' : 'Tambah Kecamatan'}
+          {isEdit ? 'Edit Data Wilayah / Kecamatan' : 'Tambah Wilayah / Kecamatan Baru'}
         </h1>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+          Masukkan data wilayah dan indikator kependudukan BPS se-Indonesia.
+        </p>
       </div>
 
       <Card>

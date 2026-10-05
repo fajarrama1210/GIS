@@ -34,14 +34,16 @@ if ($method === 'GET') {
     $result = $conn->query(
         "SELECT id, kode_kecamatan, nama_kecamatan, jumlah_penduduk, laju_pertumbuhan,
                 luas_wilayah, jumlah_faskes, jumlah_rentan, latitude, longitude,
-                kode_kabupaten, sumber_data, tahun_data, aktif_di_peta
+                provinsi, kabupaten, sumber_data, tahun_data, aktif_di_peta
          FROM data_kecamatan
-         ORDER BY nama_kecamatan ASC"
+         ORDER BY provinsi ASC, kabupaten ASC, nama_kecamatan ASC"
     );
 
     $rows = [];
     while ($row = $result->fetch_assoc()) {
         // Cast numerik agar JSON tidak serialise sebagai string
+        $row['provinsi']         = $row['provinsi'] ?? 'JAWA TIMUR';
+        $row['kabupaten']        = $row['kabupaten'] ?? 'Kabupaten Jember';
         $row['jumlah_penduduk']  = (int)   $row['jumlah_penduduk'];
         $row['laju_pertumbuhan'] = (float) $row['laju_pertumbuhan'];
         $row['luas_wilayah']     = (float) $row['luas_wilayah'];
@@ -64,6 +66,8 @@ requireCsrf();
 $body = json_decode(file_get_contents('php://input'), true) ?? [];
 
 $rules = [
+    'provinsi'          => ['type' => 'string',  'required' => false, 'min' => 2, 'max' => 100],
+    'kabupaten'         => ['type' => 'string',  'required' => false, 'min' => 2, 'max' => 100],
     'nama_kecamatan'    => ['type' => 'string',  'required' => true,  'min' => 2, 'max' => 50],
     'jumlah_penduduk'   => ['type' => 'int',     'required' => true,  'min' => 1, 'max' => 1000000],
     'laju_pertumbuhan'  => ['type' => 'float',   'required' => true,  'min' => -5, 'max' => 10],
@@ -72,71 +76,47 @@ $rules = [
     'jumlah_rentan'     => ['type' => 'int',     'required' => false, 'min' => 0],
     'latitude'          => ['type' => 'float',   'required' => true,  'min' => -90,  'max' => 90],
     'longitude'         => ['type' => 'float',   'required' => true,  'min' => -180, 'max' => 180],
-    'kode_kabupaten'    => ['type' => 'string',  'required' => false, 'min' => 7, 'max' => 7],
-    'sumber_data'       => ['type' => 'string',  'required' => false, 'min' => 2, 'max' => 120],
-    'tahun_data'        => ['type' => 'int',     'required' => false, 'min' => 1900, 'max' => 2100],
-    'aktif_di_peta'     => ['type' => 'int',     'required' => false, 'min' => 0, 'max' => 1],
 ];
 
 // ------- POST — buat kecamatan baru -------
 if ($method === 'POST') {
     $d = validateInput($body, array_merge(
-        ['kode_kecamatan' => ['type' => 'string', 'required' => false, 'min' => 7, 'max' => 7]],
+        ['kode_kecamatan' => ['type' => 'string', 'required' => false, 'min' => 3, 'max' => 10]],
         $rules
     ));
 
-    $d['kode_kabupaten'] = $d['kode_kabupaten'] ?? '3509000';
-    $d['sumber_data'] = $d['sumber_data'] ?? 'Input Admin';
-    $d['tahun_data'] = $d['tahun_data'] ?? (int) date('Y');
-    $d['aktif_di_peta'] = $d['aktif_di_peta'] ?? 1;
+    $provinsi  = !empty($d['provinsi'])  ? trim($d['provinsi'])  : 'JAWA TIMUR';
+    $kabupaten = !empty($d['kabupaten']) ? trim($d['kabupaten']) : 'Kabupaten Jember';
     $d['jumlah_faskes'] = $d['jumlah_faskes'] ?? 0;
     $d['jumlah_rentan'] = $d['jumlah_rentan'] ?? 0;
 
-    if (!preg_match('/^\d{7}$/', $d['kode_kabupaten'])) {
-        jsonResponse(['success' => false, 'message' => 'Pilih kode kabupaten/kota induk yang valid.', 'data' => null], 422);
-    }
-    if (!empty($d['kode_kecamatan']) && (
-        !preg_match('/^\d{7}$/', $d['kode_kecamatan'])
-        || substr($d['kode_kecamatan'], 0, 4) !== substr($d['kode_kabupaten'], 0, 4)
-    )) {
-        jsonResponse(['success' => false, 'message' => 'Kode kecamatan harus 7 digit dan sesuai dengan kabupaten/kota induk.', 'data' => null], 422);
+    // Kode kecamatan wajib ada (manual atau diisi default)
+    $kode = !empty($d['kode_kecamatan']) ? trim($d['kode_kecamatan']) : '';
+    if ($kode === '') {
+        $kode = strtoupper(substr(preg_replace('/[^a-z0-9]/i', '', $kabupaten), 0, 3))
+              . strtoupper(substr(preg_replace('/[^a-z0-9]/i', '', $d['nama_kecamatan']), 0, 4))
+              . rand(100, 999);
     }
 
-    if (empty($d['kode_kecamatan'])) {
-        $prefix = substr($d['kode_kabupaten'], 0, 4);
-        $existingCodes = $conn->prepare('SELECT kode_kecamatan FROM data_kecamatan WHERE kode_kecamatan LIKE ?');
-        $prefixPattern = $prefix . '%';
-        $existingCodes->bind_param('s', $prefixPattern);
-        $existingCodes->execute();
-        $usedCodes = array_fill_keys(array_column($existingCodes->get_result()->fetch_all(MYSQLI_ASSOC), 'kode_kecamatan'), true);
-        for ($suffix = 1; $suffix <= 999; $suffix++) {
-            $candidate = $prefix . str_pad((string) $suffix, 3, '0', STR_PAD_LEFT);
-            if (!isset($usedCodes[$candidate])) {
-                $d['kode_kecamatan'] = $candidate;
-                break;
-            }
-        }
-        if (empty($d['kode_kecamatan'])) {
-            jsonResponse(['success' => false, 'message' => 'Kode otomatis kecamatan sudah penuh untuk kabupaten/kota ini.', 'data' => null], 409);
-        }
-    }
-    $chk = $conn->prepare("SELECT id FROM data_kecamatan WHERE kode_kecamatan = ?");
-    $chk->bind_param('s', $d['kode_kecamatan']);
+    // Cek unik nama dalam satu kabupaten
+    $chk = $conn->prepare("SELECT id FROM data_kecamatan WHERE nama_kecamatan = ? AND kabupaten = ?");
+    $chk->bind_param('ss', $d['nama_kecamatan'], $kabupaten);
     $chk->execute();
     if ($chk->get_result()->num_rows > 0) {
-        jsonResponse(['success' => false, 'message' => 'Kode kecamatan sudah digunakan. Kosongkan kode agar sistem membuat kode otomatis.', 'data' => null], 409);
+        jsonResponse(['success' => false, 'message' => "Nama kecamatan {$d['nama_kecamatan']} sudah ada di {$kabupaten}.", 'data' => null], 409);
     }
 
     $stmt = $conn->prepare(
         "INSERT INTO data_kecamatan
-            (kode_kecamatan, nama_kecamatan, jumlah_penduduk, laju_pertumbuhan,
-             luas_wilayah, jumlah_faskes, jumlah_rentan, latitude, longitude,
-             kode_kabupaten, sumber_data, tahun_data, aktif_di_peta)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            (provinsi, kabupaten, kode_kecamatan, nama_kecamatan, jumlah_penduduk, laju_pertumbuhan,
+             luas_wilayah, jumlah_faskes, jumlah_rentan, latitude, longitude)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
     $stmt->bind_param(
-        'ssiddiiddssii',
-        $d['kode_kecamatan'],
+        'ssssiddiidd',
+        $provinsi,
+        $kabupaten,
+        $kode,
         $d['nama_kecamatan'],
         $d['jumlah_penduduk'],
         $d['laju_pertumbuhan'],
@@ -144,11 +124,7 @@ if ($method === 'POST') {
         $d['jumlah_faskes'],
         $d['jumlah_rentan'],
         $d['latitude'],
-        $d['longitude'],
-        $d['kode_kabupaten'],
-        $d['sumber_data'],
-        $d['tahun_data'],
-        $d['aktif_di_peta']
+        $d['longitude']
     );
     $stmt->execute();
 
@@ -163,36 +139,29 @@ if ($method === 'PUT') {
     }
 
     $d = validateInput($body, $rules);
-
-    $d['kode_kabupaten'] = $d['kode_kabupaten'] ?? '3509000';
-    $d['sumber_data'] = $d['sumber_data'] ?? 'Input Admin';
-    $d['tahun_data'] = $d['tahun_data'] ?? (int) date('Y');
-    $d['aktif_di_peta'] = $d['aktif_di_peta'] ?? 1;
+    $provinsi  = !empty($d['provinsi'])  ? trim($d['provinsi'])  : 'JAWA TIMUR';
+    $kabupaten = !empty($d['kabupaten']) ? trim($d['kabupaten']) : 'Kabupaten Jember';
     $d['jumlah_faskes'] = $d['jumlah_faskes'] ?? 0;
     $d['jumlah_rentan'] = $d['jumlah_rentan'] ?? 0;
-    if (!preg_match('/^\d{7}$/', $d['kode_kabupaten'])) {
-        jsonResponse(['success' => false, 'message' => 'Kode kabupaten/kota induk tidak valid.', 'data' => null], 422);
-    }
-    $chk = $conn->prepare("SELECT kode_kecamatan FROM data_kecamatan WHERE id = ?");
-    $chk->bind_param('i', $id);
+
+    // Cek unik nama (kecuali dirinya sendiri di kabupaten yang sama)
+    $chk = $conn->prepare("SELECT id FROM data_kecamatan WHERE nama_kecamatan = ? AND kabupaten = ? AND id != ?");
+    $chk->bind_param('ssi', $d['nama_kecamatan'], $kabupaten, $id);
     $chk->execute();
-    $existing = $chk->get_result()->fetch_assoc();
-    if (!$existing) {
-        jsonResponse(['success' => false, 'message' => 'Data tidak ditemukan.', 'data' => null], 404);
-    }
-    if (substr($existing['kode_kecamatan'], 0, 4) !== substr($d['kode_kabupaten'], 0, 4)) {
-        jsonResponse(['success' => false, 'message' => 'Kode kecamatan tidak sesuai dengan kabupaten/kota induk.', 'data' => null], 422);
+    if ($chk->get_result()->num_rows > 0) {
+        jsonResponse(['success' => false, 'message' => 'Nama kecamatan sudah dipakai kecamatan lain di kabupaten ini.', 'data' => null], 409);
     }
 
     $stmt = $conn->prepare(
         "UPDATE data_kecamatan
-         SET nama_kecamatan=?, jumlah_penduduk=?, laju_pertumbuhan=?,
-             luas_wilayah=?, jumlah_faskes=?, jumlah_rentan=?, latitude=?, longitude=?,
-             kode_kabupaten=?, sumber_data=?, tahun_data=?, aktif_di_peta=?
+         SET provinsi=?, kabupaten=?, nama_kecamatan=?, jumlah_penduduk=?, laju_pertumbuhan=?,
+             luas_wilayah=?, jumlah_faskes=?, jumlah_rentan=?, latitude=?, longitude=?
          WHERE id=?"
     );
     $stmt->bind_param(
-        'siddiiddssiii',
+        'sssiddiiddi',
+        $provinsi,
+        $kabupaten,
         $d['nama_kecamatan'],
         $d['jumlah_penduduk'],
         $d['laju_pertumbuhan'],
@@ -201,10 +170,6 @@ if ($method === 'PUT') {
         $d['jumlah_rentan'],
         $d['latitude'],
         $d['longitude'],
-        $d['kode_kabupaten'],
-        $d['sumber_data'],
-        $d['tahun_data'],
-        $d['aktif_di_peta'],
         $id
     );
     $stmt->execute();

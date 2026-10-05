@@ -30,7 +30,9 @@ export default function KecamatanListPage() {
 
     return data.filter((row) =>
       row.nama_kecamatan?.toLowerCase().includes(normalized) ||
-      row.kode_kecamatan?.toLowerCase().includes(normalized)
+      row.kode_kecamatan?.toLowerCase().includes(normalized) ||
+      row.kabupaten?.toLowerCase().includes(normalized) ||
+      row.provinsi?.toLowerCase().includes(normalized)
     )
   }, [data, query])
 
@@ -95,11 +97,11 @@ export default function KecamatanListPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
-                  {['No', 'Kecamatan', 'Penduduk', 'Laju (%)', 'Luas (km²)', 'Jumlah Faskes', 'Sumber', 'Lat', 'Lng', 'Aksi'].map((h) => (
+                  {['No', 'Kecamatan / Wilayah', 'Kode', 'Penduduk', 'Laju (%)', 'Luas (km²)', 'Faskes', 'Lat, Lng', 'Aksi'].map((h) => (
                     <th
                       key={h}
                       className={`px-4 py-2.5 text-xs font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap ${
-                        h === 'Jumlah Faskes' ? 'text-center' : 'text-left'
+                        h === 'Faskes' ? 'text-center' : 'text-left'
                       }`}
                     >
                       {h}
@@ -110,7 +112,7 @@ export default function KecamatanListPage() {
               <tbody>
                 {paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-4 py-8 text-center text-sm text-zinc-400">
+                    <td colSpan={9} className="px-4 py-8 text-center text-sm text-zinc-400">
                       Tidak ada data yang cocok.
                     </td>
                   </tr>
@@ -123,8 +125,14 @@ export default function KecamatanListPage() {
                       <td className="px-4 py-3 text-zinc-500 text-center text-xs font-medium">
                         {(currentPage - 1) * PAGE_SIZE + index + 1}
                       </td>
-                      <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
-                        {row.nama_kecamatan}
+                      <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
+                        <div className="font-semibold">{row.nama_kecamatan}</div>
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                          {row.kabupaten || 'Kabupaten Jember'}, {row.provinsi || 'JAWA TIMUR'}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-xs font-mono text-zinc-600 dark:text-zinc-400">
+                        {row.kode_kecamatan}
                       </td>
                       <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">
                         {formatNumber(row.jumlah_penduduk)}
@@ -134,9 +142,7 @@ export default function KecamatanListPage() {
                       </td>
                       <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{row.luas_wilayah}</td>
                       <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400 text-center">{row.jumlah_faskes ?? 0}</td>
-                      <td className="px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400">{row.sumber_data}</td>
-                      <td className="px-4 py-3 text-zinc-400 text-xs font-mono">{row.latitude}</td>
-                      <td className="px-4 py-3 text-zinc-400 text-xs font-mono">{row.longitude}</td>
+                      <td className="px-4 py-3 text-zinc-400 text-xs font-mono">{row.latitude}, {row.longitude}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1.5">
                           <Link to={`/admin/kecamatan/${row.id}/edit`}>

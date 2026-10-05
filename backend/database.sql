@@ -4,6 +4,8 @@ USE jember_db;
 -- Tabel data kecamatan (updated: tambah kolom laju_pertumbuhan, lat, lng)
 CREATE TABLE IF NOT EXISTS data_kecamatan (
     id                 INT AUTO_INCREMENT PRIMARY KEY,
+    provinsi           VARCHAR(100)   NOT NULL DEFAULT 'JAWA TIMUR',
+    kabupaten          VARCHAR(100)   NOT NULL DEFAULT 'Kabupaten Jember',
     kode_kecamatan     VARCHAR(10)    NOT NULL UNIQUE,
     nama_kecamatan     VARCHAR(100)   NOT NULL,
     jumlah_penduduk    INT            NOT NULL,
@@ -23,6 +25,8 @@ CREATE TABLE IF NOT EXISTS data_kecamatan (
 
 -- Migrasi: tambah kolom baru jika belum ada (aman dijalankan ulang)
 ALTER TABLE data_kecamatan
+    ADD COLUMN IF NOT EXISTS provinsi         VARCHAR(100)  NOT NULL DEFAULT 'JAWA TIMUR',
+    ADD COLUMN IF NOT EXISTS kabupaten        VARCHAR(100)  NOT NULL DEFAULT 'Kabupaten Jember',
     ADD COLUMN IF NOT EXISTS laju_pertumbuhan DECIMAL(5,2)  NOT NULL DEFAULT 0.00,
     ADD COLUMN IF NOT EXISTS latitude         DECIMAL(10,7) NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS longitude        DECIMAL(10,7) NOT NULL DEFAULT 0,
