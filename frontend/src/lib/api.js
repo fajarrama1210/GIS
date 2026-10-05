@@ -14,7 +14,6 @@ const api = axios.create({
   timeout: TIMEOUT_FAST,
   headers: {
     'Content-Type': 'application/json',
-    'Accept-Encoding': 'gzip, deflate',
   },
 })
 
