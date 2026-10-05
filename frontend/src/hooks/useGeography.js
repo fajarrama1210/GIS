@@ -3,6 +3,20 @@ import api from '@/lib/api'
 
 const EAST_JAVA_CODE = '3500000'
 
+function responseArray(response, label) {
+  const data = response.data?.data
+  if (!Array.isArray(data)) {
+    throw new Error(`Respons API ${label} tidak valid.`)
+  }
+  return data
+}
+
+function errorMessage(error, fallback) {
+  return error?.response?.data?.message
+    || (error instanceof Error ? error.message : '')
+    || fallback
+}
+
 export function useGeography() {
   const [provinces, setProvinces] = useState([])
   const [regencies, setRegencies] = useState([])
@@ -20,7 +34,7 @@ export function useGeography() {
     api.get('/geography.php?action=provinces')
       .then((response) => {
         if (!active) return
-        const list = response.data.data
+        const list = responseArray(response, 'daftar provinsi')
         setProvinces(list)
         if (!list.length) {
           setLoading(false)
@@ -35,7 +49,7 @@ export function useGeography() {
       .catch((requestError) => {
         if (active) {
           setLoading(false)
-          setError(requestError.response?.data?.message || 'Daftar provinsi gagal dimuat.')
+          setError(errorMessage(requestError, 'Daftar provinsi gagal dimuat.'))
         }
       })
       .finally(() => {
@@ -59,12 +73,12 @@ export function useGeography() {
     api.get('/geography.php?action=regencies', { params: { parent: province } })
       .then((response) => {
         if (active) {
-          setRegencies(response.data.data)
+          setRegencies(responseArray(response, 'daftar kabupaten/kota'))
           setError('')
         }
       })
       .catch((requestError) => {
-        if (active) setError(requestError.response?.data?.message || 'Daftar kabupaten/kota gagal dimuat.')
+        if (active) setError(errorMessage(requestError, 'Daftar kabupaten/kota gagal dimuat.'))
       })
       .finally(() => {
         if (active) setRegionsLoading(false)
@@ -85,12 +99,12 @@ export function useGeography() {
     api.get('/geography.php?action=districts', { params: { parent: regency } })
       .then((response) => {
         if (active) {
-          setDistricts(response.data.data)
+          setDistricts(responseArray(response, 'daftar kecamatan'))
           setError('')
         }
       })
       .catch((requestError) => {
-        if (active) setError(requestError.response?.data?.message || 'Daftar kecamatan gagal dimuat.')
+        if (active) setError(errorMessage(requestError, 'Daftar kecamatan gagal dimuat.'))
       })
       .finally(() => {
         if (active) setRegionsLoading(false)
@@ -108,10 +122,21 @@ export function useGeography() {
       params: { province, regency, district },
     })
       .then((response) => {
-        if (active) setMapData(response.data.data)
+        const payload = response.data?.data
+        if (
+          !payload
+          || typeof payload !== 'object'
+          || Array.isArray(payload)
+          || !Array.isArray(payload.regions)
+          || payload.geojson?.type !== 'FeatureCollection'
+          || !Array.isArray(payload.geojson.features)
+        ) {
+          throw new Error('Respons API data peta tidak valid.')
+        }
+        if (active) setMapData(payload)
       })
       .catch((requestError) => {
-        if (active) setError(requestError.response?.data?.message || 'Data wilayah dan statistik gagal dimuat.')
+        if (active) setError(errorMessage(requestError, 'Data wilayah dan statistik gagal dimuat.'))
       })
       .finally(() => {
         if (active) setLoading(false)

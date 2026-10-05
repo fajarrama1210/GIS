@@ -204,3 +204,5 @@ Repository ini menyediakan `Dockerfile` di root untuk membangun frontend dan men
 7. Aktifkan **Auto Deploy** untuk aplikasi dan hubungkan webhook GitHub jika Dokploy meminta. Push ke branch yang dipilih akan memicu build dan deployment ulang secara otomatis.
 
 Impor `backend/database.sql` ke database `jember_db` melalui phpMyAdmin atau tool database Dokploy sebelum memakai aplikasi. Data database berada di service MySQL Dokploy. Simpan backup database terpisah. Alternatif deployment Docker Compose tetap tersedia di `docker-compose.yml`.
+
+Isi `BPS_API_KEY` dengan nilai token saja (tanpa awalan `BPS_API_KEY=` di dalam nilainya). Untuk file `backend/.env`, gunakan satu assignment seperti `BPS_API_KEY=nilai_token`; jangan menggandakan nama variabel. Jika token pernah terekspos, cabut dan buat token baru di portal BPS. Setelah mengubah kode frontend atau `VITE_API_URL`, lakukan build/deploy ulang agar bundle frontend yang disajikan server ikut diperbarui.
