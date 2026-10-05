@@ -14,6 +14,26 @@ function requireAuth(): void {
 }
 
 /**
+ * Wajib memiliki role admin berdasarkan data terbaru di database.
+ */
+function requireAdmin(): void {
+    global $conn;
+
+    requireAuth();
+    $stmt = $conn->prepare("SELECT role FROM users WHERE id = ? LIMIT 1");
+    $userId = (int) $_SESSION['user_id'];
+    $stmt->bind_param('i', $userId);
+    $stmt->execute();
+    $user = $stmt->get_result()->fetch_assoc();
+
+    if (!$user || $user['role'] !== 'admin') {
+        jsonResponse(['success' => false, 'message' => 'Akses khusus admin.', 'data' => null], 403);
+    }
+
+    $_SESSION['role'] = $user['role'];
+}
+
+/**
  * Wajib CSRF token valid di header X-CSRF-Token.
  */
 function requireCsrf(): void {

@@ -28,12 +28,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'me') {
     if (empty($_SESSION['user_id'])) {
         jsonResponse(['success' => false, 'message' => 'Belum login.', 'data' => null], 401);
     }
+    $stmt = $conn->prepare("SELECT role FROM users WHERE id = ? LIMIT 1");
+    $userId = (int) $_SESSION['user_id'];
+    $stmt->bind_param('i', $userId);
+    $stmt->execute();
+    $user = $stmt->get_result()->fetch_assoc();
+
+    if (!$user) {
+        session_destroy();
+        jsonResponse(['success' => false, 'message' => 'Sesi tidak lagi valid.', 'data' => null], 401);
+    }
+
+    $_SESSION['role'] = $user['role'];
     jsonResponse([
         'success' => true,
         'message' => 'OK',
         'data'    => [
             'id'         => $_SESSION['user_id'],
             'username'   => $_SESSION['username'],
+            'role'       => $_SESSION['role'],
             'csrf_token' => generateCsrfToken(),
         ],
     ]);
@@ -50,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'login') {
         jsonResponse(['success' => false, 'message' => 'Username dan password wajib diisi.', 'data' => null], 422);
     }
 
-    $stmt = $conn->prepare("SELECT id, username, password_hash FROM users WHERE username = ? LIMIT 1");
+    $stmt = $conn->prepare("SELECT id, username, password_hash, role FROM users WHERE username = ? LIMIT 1");
     $stmt->bind_param('s', $username);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -65,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'login') {
     session_regenerate_id(true);
     $_SESSION['user_id']  = $user['id'];
     $_SESSION['username'] = $user['username'];
+    $_SESSION['role']    = $user['role'];
 
     $csrfToken = generateCsrfToken();
 
@@ -74,6 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'login') {
         'data'    => [
             'id'         => $user['id'],
             'username'   => $user['username'],
+            'role'       => $user['role'],
             'csrf_token' => $csrfToken,
         ],
     ]);

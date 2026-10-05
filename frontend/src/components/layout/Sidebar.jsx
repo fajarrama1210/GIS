@@ -1,6 +1,6 @@
 // Sidebar navigasi admin.
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, MapPin, LogOut, Map } from 'lucide-react'
+import { LayoutDashboard, MapPin, LogOut, Map, UsersRound } from 'lucide-react'
 import api from '@/lib/api'
 import useAuthStore from '@/stores/authStore'
 import { cn } from '@/lib/utils'
@@ -9,6 +9,7 @@ import ThemeToggle from './ThemeToggle'
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/kecamatan', label: 'Data Kecamatan', icon: MapPin },
+  { to: '/admin/users', label: 'Pengguna & Tim', icon: UsersRound, adminOnly: true },
 ]
 
 export default function Sidebar() {
@@ -24,7 +25,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-56 shrink-0 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 flex flex-col min-h-screen">
+    <aside className="sticky top-0 h-screen w-56 shrink-0 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 flex flex-col">
       {/* Logo */}
       <div className="h-14 flex items-center gap-2 px-5 border-b border-zinc-200 dark:border-zinc-800">
         <Map size={16} className="text-jember-600" />
@@ -33,7 +34,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 p-3 flex flex-col gap-0.5">
-        {navItems.map(({ to, label, icon: Icon, end }) => (
+        {navItems.filter(({ adminOnly }) => !adminOnly || user?.role === 'admin').map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}

@@ -27,12 +27,16 @@ RUN docker-php-ext-install mysqli \
        'session.cookie_secure=1' \
        'session.cookie_httponly=1' \
        'session.cookie_samesite=Lax' \
+       'upload_max_filesize=5M' \
+       'post_max_size=6M' \
        > /usr/local/etc/php/conf.d/session-security.ini
 
 WORKDIR /var/www/html
 
 COPY --from=frontend-build /app/dist/ ./
 COPY backend/ ./backend/
+RUN mkdir -p /var/www/html/backend/uploads/team \
+    && chown -R www-data:www-data /var/www/html/backend/uploads
 COPY .htaccess ./
 
 EXPOSE 80

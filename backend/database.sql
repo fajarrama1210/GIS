@@ -30,13 +30,34 @@ CREATE TABLE IF NOT EXISTS users (
     id            INT AUTO_INCREMENT PRIMARY KEY,
     username      VARCHAR(50)  NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    role          ENUM('admin', 'editor') NOT NULL DEFAULT 'admin',
     created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Migrasi aman untuk database lama yang belum memiliki role.
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS role ENUM('admin', 'editor') NOT NULL DEFAULT 'admin';
 
 -- User default: admin / Admin123!
 -- Hash dibuat dengan password_hash('Admin123!', PASSWORD_BCRYPT)
 INSERT IGNORE INTO users (username, password_hash) VALUES
 ('admin', '$2y$10$kaY.ssZkycvPqySVQuZPqu0DTlX8N6XIPnEaPUNnSA6f89462xLv.');
+
+CREATE TABLE IF NOT EXISTS team_settings (
+    id         TINYINT UNSIGNED PRIMARY KEY,
+    team_name  VARCHAR(100) NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT IGNORE INTO team_settings (id, team_name) VALUES (1, 'Tim Pengembang');
+
+CREATE TABLE IF NOT EXISTS team_members (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    name       VARCHAR(100) NOT NULL,
+    position   VARCHAR(100) NOT NULL DEFAULT '',
+    photo_path VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 -- Data 31 kecamatan Kabupaten Jember (BPS 2024)
 TRUNCATE TABLE data_kecamatan;

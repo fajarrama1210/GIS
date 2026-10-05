@@ -7,7 +7,8 @@ Aplikasi visualisasi data kependudukan 31 kecamatan Kabupaten Jember berbasis **
 - **Peta choropleth interaktif** (Leaflet) — mode jumlah penduduk & laju pertumbuhan
 - **Grafik horizontal bar** (Chart.js) — perbandingan antar kecamatan
 - **Tabel data** — search, sort kolom, pagination client-side
-- **Panel admin** — CRUD kecamatan dengan autentikasi session PHP
+- **Panel admin** — CRUD kecamatan dan user, pengaturan role serta reset password
+- **Section Tim** — foto dan informasi anggota tim yang dikelola admin
 - **Dark mode** — toggle, preferensi disimpan di localStorage
 
 ## Struktur Proyek
@@ -18,10 +19,13 @@ GIS/
 │   ├── koneksi.php
 │   ├── database.sql
 │   ├── jember_kecamatan.geojson
-│   └── api/
+│   ├── api/
 │       ├── auth.php
+│       ├── users.php
+│       ├── team.php
 │       ├── kecamatan.php
-│       └── _middleware.php
+│   │   └── _middleware.php
+│   └── uploads/team/ (foto anggota tim)
 ├── frontend/
 │   ├── index.html
 │   ├── vite.config.js
@@ -52,6 +56,25 @@ GIS/
 1. Buka XAMPP, aktifkan **Apache** dan **MySQL**.
 2. Buka phpMyAdmin (`http://localhost/phpmyadmin`).
 3. Import file `backend/database.sql` (akan membuat database `jember_db` beserta tabel dan data awal).
+
+   Jika database lama sudah berisi data, jangan impor ulang seluruh file karena data kecamatan di-seed ulang. Jalankan hanya migrasi berikut melalui phpMyAdmin:
+
+   ```sql
+   ALTER TABLE users ADD COLUMN IF NOT EXISTS role ENUM('admin', 'editor') NOT NULL DEFAULT 'admin';
+   CREATE TABLE IF NOT EXISTS team_settings (
+     id TINYINT UNSIGNED PRIMARY KEY,
+     team_name VARCHAR(100) NOT NULL,
+     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+   );
+   INSERT IGNORE INTO team_settings (id, team_name) VALUES (1, 'Tim Pengembang');
+   CREATE TABLE IF NOT EXISTS team_members (
+     id INT AUTO_INCREMENT PRIMARY KEY,
+     name VARCHAR(100) NOT NULL,
+     position VARCHAR(100) NOT NULL DEFAULT '',
+     photo_path VARCHAR(255) NOT NULL,
+     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   );
+   ```
 
 > **Akun admin default:** username `admin` | password `Admin123!`
 
@@ -102,6 +125,7 @@ VITE_GEOJSON_URL=http://localhost/GIS/backend/jember_kecamatan.geojson
 | `http://localhost:5173/login` | Login admin |
 | `http://localhost:5173/admin` | Dashboard admin |
 | `http://localhost:5173/admin/kecamatan` | Daftar & kelola kecamatan |
+| `http://localhost:5173/admin/users` | Kelola pengguna, role, password, dan tim (admin) |
 
 ---
 
@@ -115,7 +139,7 @@ VITE_GEOJSON_URL=http://localhost/GIS/backend/jember_kecamatan.geojson
 
 ## Catatan Keamanan
 
-- Password di-hash dengan `PASSWORD_BCRYPT` (PHP `password_hash`)
+- Password di-hash dengan PHP `password_hash()` (`PASSWORD_DEFAULT`) dan tidak pernah disimpan plaintext
 - Semua query menggunakan prepared statements
 - CSRF token di-generate server dan dikirim di header `X-CSRF-Token`
 - Session cookie tidak diekspos ke JavaScript (`httpOnly` via PHP session)
@@ -140,8 +164,9 @@ Repository ini menyediakan `Dockerfile` di root untuk membangun frontend dan men
    | `MYSQL_PASSWORD` | Password untuk user tersebut |
    | `VITE_API_URL` | `/backend/api` |
 
-4. Pastikan service aplikasi dapat menjangkau host database melalui jaringan Dokploy. Deploy aplikasi, lalu arahkan domain aplikasi ke container pada port `80` dan aktifkan HTTPS di Dokploy.
-5. Sebelum domain dibuka untuk umum, ubah password admin bawaan (`admin` / `Admin123!`) dengan memperbarui `users.password_hash` di MySQL menggunakan hash bcrypt yang dibuat oleh PHP `password_hash()`. Panel saat ini tidak menyediakan fitur ganti password.
-6. Aktifkan **Auto Deploy** untuk aplikasi dan hubungkan webhook GitHub jika Dokploy meminta. Push ke branch yang dipilih akan memicu build dan deployment ulang secara otomatis.
+4. Untuk database lama, jalankan migrasi role dan tabel tim dari bagian `users`, `team_settings`, dan `team_members` di `backend/database.sql`. Database baru mendapatkan seluruh tabel saat file tersebut diimpor.
+5. Pastikan service aplikasi dapat menjangkau host database melalui jaringan Dokploy. Deploy aplikasi, lalu arahkan domain aplikasi ke container pada port `80` dan aktifkan HTTPS di Dokploy.
+6. Setelah masuk sebagai admin, gunakan halaman **Pengguna & Tim** untuk mengganti password bawaan (`admin` / `Admin123!`) dan menambahkan foto anggota tim.
+7. Aktifkan **Auto Deploy** untuk aplikasi dan hubungkan webhook GitHub jika Dokploy meminta. Push ke branch yang dipilih akan memicu build dan deployment ulang secara otomatis.
 
 Impor `backend/database.sql` ke database `jember_db` melalui phpMyAdmin atau tool database Dokploy sebelum memakai aplikasi. Data database berada di service MySQL Dokploy. Simpan backup database terpisah. Alternatif deployment Docker Compose tetap tersedia di `docker-compose.yml`.

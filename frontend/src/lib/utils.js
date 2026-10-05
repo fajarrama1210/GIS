@@ -7,6 +7,11 @@ export function cn(...classes) {
   return classes.filter(Boolean).join(' ')
 }
 
+export function resolveApiAssetUrl(path) {
+  const apiUrl = new URL(import.meta.env.VITE_API_URL || '/backend/api', window.location.origin)
+  return new URL(path, apiUrl).toString()
+}
+
 /**
  * Format bilangan ke string dengan pemisah ribuan (locale Indonesia).
  */

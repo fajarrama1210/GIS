@@ -1,9 +1,9 @@
 // Halaman publik utama — hero, stat cards, peta, grafik, tabel.
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Users, TrendingUp, TrendingDown, MapPin } from 'lucide-react'
 import { useKecamatan } from '@/hooks/useKecamatan'
 import { useGeojson } from '@/hooks/useGeojson'
-import { computeStats, formatNumber, formatGrowth } from '@/lib/utils'
+import { computeStats, formatNumber, formatGrowth, resolveApiAssetUrl } from '@/lib/utils'
 import MapView from '@/components/map/MapView'
 import InfoPanel from '@/components/map/InfoPanel'
 import BarChart from '@/components/chart/BarChart'
@@ -11,6 +11,7 @@ import ChartToggle from '@/components/chart/ChartToggle'
 import DataTable from '@/components/table/DataTable'
 import Card, { CardHeader, CardTitle } from '@/components/ui/Card'
 import { SkeletonCard } from '@/components/ui/Skeleton'
+import api from '@/lib/api'
 
 // Komponen StatCard
 function StatCard({ icon: Icon, label, value, sub, accent }) {
@@ -44,6 +45,8 @@ export default function HomePage() {
   const [mapMode, setMapMode] = useState('penduduk')
   const [chartMode, setChartMode] = useState('penduduk')
   const [hoveredKec, setHoveredKec] = useState(null)
+  const [team, setTeam] = useState(null)
+  const [teamError, setTeamError] = useState('')
 
   const stats = useMemo(() => computeStats(data), [data])
 
@@ -59,6 +62,18 @@ export default function HomePage() {
 
   // ⚠️ WAJIB useCallback — biar MapView tidak re-render tiap parent render
   const handleHover = useCallback((kec) => setHoveredKec(kec), [])
+
+  useEffect(() => {
+    let active = true
+    api.get('/team.php')
+      .then((response) => {
+        if (active) setTeam(response.data.data)
+      })
+      .catch(() => {
+        if (active) setTeamError('Informasi tim tidak dapat dimuat saat ini.')
+      })
+    return () => { active = false }
+  }, [])
 
   // Debug log — hapus setelah fix terkonfirmasi
   console.log('[HomePage] data:', data?.length,
@@ -190,6 +205,47 @@ export default function HomePage() {
         <Card>
           <DataTable data={data} loading={loading} />
         </Card>
+      </section>
+
+      {/* Tim */}
+      <section aria-labelledby="team-heading">
+        <div className="mb-4">
+          <p className="text-xs font-medium uppercase tracking-widest text-jember-600 mb-1">Di balik data</p>
+          <h2 id="team-heading" className="text-xl font-serif font-semibold text-zinc-900 dark:text-zinc-100">
+            {team?.name || 'Tim Pengembang'}
+          </h2>
+        </div>
+        {teamError ? (
+          <p role="status" className="text-sm text-zinc-500 dark:text-zinc-400">{teamError}</p>
+        ) : team?.members.length ? (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {team.members.map((member) => (
+              <Card key={member.id} className="flex flex-col items-center gap-3 text-center">
+                <img
+                  src={resolveApiAssetUrl(member.photo_url)}
+                  alt={`Foto ${member.name}`}
+                  loading="lazy"
+                  className="h-24 w-24 rounded-full object-cover ring-2 ring-jember-100 dark:ring-jember-900"
+                />
+                <div>
+                  <h3 className="font-medium text-zinc-900 dark:text-zinc-100">{member.name}</h3>
+                  {member.position && <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{member.position}</p>}
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : team ? (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Anggota tim akan segera ditampilkan.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Card key={index} className="flex h-40 flex-col items-center justify-center gap-3">
+                <div className="h-20 w-20 rounded-full skeleton" />
+                <div className="h-3 w-24 skeleton" />
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   )
