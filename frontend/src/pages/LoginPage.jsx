@@ -69,7 +69,7 @@ export default function LoginPage() {
             Masuk ke Panel Admin
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Data Penduduk Kabupaten Jember
+            GIS Data Wilayah dan Kependudukan
           </p>
         </div>
 

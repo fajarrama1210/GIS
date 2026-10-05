@@ -1,9 +1,9 @@
 // Halaman publik utama — hero, stat cards, peta, grafik, tabel.
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Users, TrendingUp, TrendingDown, MapPin } from 'lucide-react'
-import { useKecamatan } from '@/hooks/useKecamatan'
-import { useGeojson } from '@/hooks/useGeojson'
-import { computeStats, formatNumber, formatGrowth, resolveApiAssetUrl } from '@/lib/utils'
+import { useGeography } from '@/hooks/useGeography'
+import { formatNumber, formatGrowth, resolveApiAssetUrl } from '@/lib/utils'
+import GeographySelector from '@/components/GeographySelector'
 import MapView from '@/components/map/MapView'
 import InfoPanel from '@/components/map/InfoPanel'
 import BarChart from '@/components/chart/BarChart'
@@ -40,23 +40,36 @@ const CHART_OPTIONS = [
 ]
 
 export default function HomePage() {
-  const { data, loading, error } = useKecamatan()
-  const { geojson, loading: geoLoading, error: geoError } = useGeojson()
+  const geography = useGeography()
+  const { data, loading, error, geojson, mapData } = geography
   const [mapMode, setMapMode] = useState('penduduk')
   const [chartMode, setChartMode] = useState('penduduk')
   const [hoveredKec, setHoveredKec] = useState(null)
   const [team, setTeam] = useState(null)
   const [teamError, setTeamError] = useState('')
 
-  const stats = useMemo(() => computeStats(data), [data])
+  const stats = useMemo(() => {
+    const populated = data.filter((row) => Number.isFinite(row.jumlah_penduduk))
+    const growthRows = data.filter((row) => Number.isFinite(row.laju_pertumbuhan))
+    if (!populated.length) return null
+    return {
+      total: populated.reduce((sum, row) => sum + row.jumlah_penduduk, 0),
+      populatedCount: populated.length,
+      terpadat: populated.reduce((top, row) => row.jumlah_penduduk > top.jumlah_penduduk ? row : top),
+      tercepat: growthRows.length
+        ? growthRows.reduce((top, row) => row.laju_pertumbuhan > top.laju_pertumbuhan ? row : top)
+        : null,
+      negatif: growthRows.filter((row) => row.laju_pertumbuhan < 0).length,
+    }
+  }, [data])
 
   // Data grafik — urutkan dan potong 15 teratas
   const sortedPenduduk = useMemo(
-    () => [...data].sort((a, b) => b.jumlah_penduduk - a.jumlah_penduduk).slice(0, 15),
+    () => [...data].sort((a, b) => (b.jumlah_penduduk ?? -1) - (a.jumlah_penduduk ?? -1)).slice(0, 15),
     [data],
   )
   const sortedLaju = useMemo(
-    () => [...data].sort((a, b) => b.laju_pertumbuhan - a.laju_pertumbuhan),
+    () => [...data].sort((a, b) => (b.laju_pertumbuhan ?? -Infinity) - (a.laju_pertumbuhan ?? -Infinity)),
     [data],
   )
 
@@ -75,11 +88,7 @@ export default function HomePage() {
     return () => { active = false }
   }, [])
 
-  // Debug log — hapus setelah fix terkonfirmasi
-  console.log('[HomePage] data:', data?.length,
-    '| geojson features:', geojson?.features?.length,
-    '| loading:', loading, geoLoading,
-    '| error:', error?.message, geoError?.message)
+  const scopeTitle = mapData?.scope_name || 'Pilih wilayah'
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-10">
@@ -87,54 +96,85 @@ export default function HomePage() {
       {/* Hero */}
       <section>
         <p className="text-xs font-medium text-jember-600 uppercase tracking-widest mb-2">
-          BPS Kabupaten Jember &mdash; 2024
+          DATA WILAYAH & KEPENDUDUKAN
         </p>
         <h1 className="text-3xl sm:text-4xl font-serif font-semibold text-zinc-900 dark:text-zinc-100 leading-tight">
-          Data Penduduk<br />
-          <span className="text-jember-600">Kabupaten Jember</span>
+          Peta dan Statistik<br />
+          <span className="text-jember-600">{scopeTitle}</span>
         </h1>
         <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400 max-w-xl">
-          Visualisasi interaktif data kependudukan 31 kecamatan. Peta choropleth,
-          grafik perbandingan, dan tabel lengkap dengan data terkini BPS.
+          Jelajahi data wilayah dan statistik penduduk dengan memilih provinsi,
+          kabupaten/kota, dan kecamatan. Statistik bersumber dari BPS, dengan
+          data admin sebagai pelengkap saat nilai BPS tidak tersedia; batas wilayah dari BIG.
         </p>
       </section>
 
+      <GeographySelector
+        provinces={geography.provinces}
+        regencies={geography.regencies}
+        districts={geography.districts}
+        province={geography.province}
+        regency={geography.regency}
+        district={geography.district}
+        onProvinceChange={geography.selectProvince}
+        onRegencyChange={geography.selectRegency}
+        onDistrictChange={geography.setDistrict}
+        disabled={geography.regionsLoading && !geography.provinces.length}
+      />
+      {mapData && (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 -mt-7">
+          Sumber statistik: {mapData.data_sources.join(', ')}.{mapData.statistic_year && <> Publikasi BPS: <a className="underline" href={mapData.source.statistics_url} target="_blank" rel="noreferrer">API BPS</a>, {mapData.statistic_year} — {mapData.statistic_title}.</>} Batas wilayah: <a className="underline" href={mapData.source.boundaries_url} target="_blank" rel="noreferrer">BIG (RBI)</a>.
+        </p>
+      )}
+      {mapData?.stale_data && (
+        <div role="status" className="-mt-7 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          Layanan {Object.keys(mapData.stale_sources || {}).join(' dan ')} sedang membatasi atau gagal menjawab. Data resmi yang sebelumnya tersimpan ditampilkan sementara; tahun statistik tetap tercantum di atas.
+        </div>
+      )}
+      {error && (
+        <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+          {error}
+        </div>
+      )}
+
       {/* Stat cards */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {loading || !stats ? (
+        {loading ? (
           Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : (
+        ) : stats ? (
           <>
             <StatCard
               icon={Users}
               label="Total Penduduk"
               value={formatNumber(stats.total)}
-              sub="jiwa seluruh kecamatan"
+              sub={stats.populatedCount === data.length
+                ? `jiwa di ${data.length} wilayah`
+                : `nilai tersedia untuk ${stats.populatedCount} dari ${data.length} wilayah`}
               accent="bg-jember-600"
             />
             <StatCard
               icon={MapPin}
-              label="Kecamatan Terpadat"
-              value={stats.terpadat.nama_kecamatan}
+              label="Penduduk Terbanyak"
+              value={stats.terpadat.nama_wilayah}
               sub={`${formatNumber(stats.terpadat.jumlah_penduduk)} jiwa`}
               accent="bg-amber-500"
             />
             <StatCard
               icon={TrendingUp}
-              label="Pertumbuhan Tercepat"
-              value={stats.tercepat.nama_kecamatan}
-              sub={formatGrowth(stats.tercepat.laju_pertumbuhan)}
+              label="Pertumbuhan Tertinggi"
+              value={stats.tercepat?.nama_wilayah || '-'}
+              sub={formatGrowth(stats.tercepat?.laju_pertumbuhan)}
               accent="bg-jember-700"
             />
             <StatCard
               icon={TrendingDown}
-              label="Laju Negatif"
-              value={`${stats.negatif} kecamatan`}
-              sub="mengalami penurunan"
+              label="Wilayah Menyusut"
+              value={`${stats.negatif} wilayah`}
+              sub={`dari ${data.length} wilayah`}
               accent="bg-red-500"
             />
           </>
-        )}
+        ) : <p className="col-span-full text-sm text-zinc-500">Statistik belum tersedia untuk wilayah ini.</p>}
       </section>
 
       {/* Peta */}

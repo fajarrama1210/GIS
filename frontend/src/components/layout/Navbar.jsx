@@ -12,7 +12,7 @@ export default function Navbar() {
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 hover:text-jember-600 transition-fast">
           <Map size={18} className="text-jember-600" />
-          <span className="font-semibold text-sm">Jember Penduduk</span>
+          <span className="font-semibold text-sm">GIS Wilayah</span>
         </Link>
 
         {/* Actions */}

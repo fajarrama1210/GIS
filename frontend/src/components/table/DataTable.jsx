@@ -1,7 +1,7 @@
 // Tabel data dengan search, sort kolom, dan pagination client-side.
 import { useState, useMemo } from 'react'
 import { ChevronUp, ChevronDown, ChevronsUpDown, Search } from 'lucide-react'
-import { formatNumber, formatGrowth } from '@/lib/utils'
+import { formatNumber, formatGrowth, formatPercent } from '@/lib/utils'
 
 const PAGE_SIZE = 10
 
@@ -30,13 +30,13 @@ export default function DataTable({ data, loading }) {
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
-    return data.filter((d) => d.nama_kecamatan.toLowerCase().includes(q))
+    return data.filter((d) => (d.nama_wilayah || d.nama_kecamatan || '').toLowerCase().includes(q))
   }, [data, query])
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
-      const va = a[sortCol]
-      const vb = b[sortCol]
+      const va = a[sortCol] ?? ''
+      const vb = b[sortCol] ?? ''
       const cmp = typeof va === 'string' ? va.localeCompare(vb) : va - vb
       return sortDir === 'asc' ? cmp : -cmp
     })
@@ -45,13 +45,24 @@ export default function DataTable({ data, loading }) {
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
   const pageData = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  const cols = [
-    { key: 'nama_kecamatan', label: 'Kecamatan' },
-    { key: 'jumlah_penduduk', label: 'Penduduk' },
-    { key: 'laju_pertumbuhan', label: 'Laju (%)' },
-    { key: 'luas_wilayah', label: 'Luas (km²)' },
-    { key: 'jumlah_faskes', label: 'Faskes' },
-  ]
+  const isBpsData = data.some((row) => row.kode_wilayah)
+  const cols = isBpsData
+    ? [
+        { key: 'nama_wilayah', label: 'Wilayah' },
+        { key: 'jumlah_penduduk', label: 'Penduduk' },
+        { key: 'laju_pertumbuhan', label: 'Pertumbuhan (%)' },
+        { key: 'kepadatan_penduduk', label: 'Jiwa/km²' },
+        { key: 'distribusi_penduduk', label: 'Distribusi (%)' },
+        { key: 'sumber_data', label: 'Sumber' },
+        { key: 'tahun_data', label: 'Tahun' },
+      ]
+    : [
+        { key: 'nama_kecamatan', label: 'Kecamatan' },
+        { key: 'jumlah_penduduk', label: 'Penduduk' },
+        { key: 'laju_pertumbuhan', label: 'Laju (%)' },
+        { key: 'luas_wilayah', label: 'Luas (km²)' },
+        { key: 'jumlah_faskes', label: 'Faskes' },
+      ]
 
   if (loading) {
     return (
@@ -70,7 +81,7 @@ export default function DataTable({ data, loading }) {
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
         <input
           type="text"
-          placeholder="Cari kecamatan..."
+          placeholder="Cari wilayah..."
           value={query}
           onChange={(e) => { setQuery(e.target.value); setPage(1) }}
           className="w-full pl-9 pr-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-jember-500/30 transition-fast"
@@ -113,13 +124,24 @@ export default function DataTable({ data, loading }) {
                     className="border-b border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-fast"
                   >
                     <td className="px-4 py-3 text-xs text-zinc-400">{(page - 1) * PAGE_SIZE + idx + 1}</td>
-                    <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">{row.nama_kecamatan}</td>
+                    <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">{row.nama_wilayah || row.nama_kecamatan}</td>
                     <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">{formatNumber(row.jumlah_penduduk)}</td>
                     <td className={`px-4 py-3 font-medium ${lajuPositif ? 'text-jember-600' : 'text-red-500'}`}>
                       {formatGrowth(row.laju_pertumbuhan)}
                     </td>
-                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{row.luas_wilayah}</td>
-                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{row.jumlah_faskes}</td>
+                    {isBpsData ? (
+                      <>
+                        <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{formatNumber(row.kepadatan_penduduk)}</td>
+                        <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{formatPercent(row.distribusi_penduduk)}</td>
+                        <td className="px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400">{row.sumber_data || '-'}</td>
+                        <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{row.tahun_data || '-'}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{row.luas_wilayah}</td>
+                        <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{row.jumlah_faskes}</td>
+                      </>
+                    )}
                   </tr>
                 )
               })
@@ -131,7 +153,7 @@ export default function DataTable({ data, loading }) {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-          <span>{filtered.length} kecamatan ditemukan</span>
+          <span>{filtered.length} wilayah ditemukan</span>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}

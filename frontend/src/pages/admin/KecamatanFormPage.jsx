@@ -1,5 +1,5 @@
-// Form create/edit kecamatan — dipakai di /admin/kecamatan/baru dan /:id/edit.
-import { useEffect } from 'react'
+// Form create/edit kecamatan — mengikuti pola CRUD admin sebelum integrasi BPS.
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -12,22 +12,41 @@ import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 
 const schema = z.object({
-  kode_kecamatan:   z.string().min(3, 'Min 3 karakter').max(10, 'Maks 10 karakter').optional().or(z.literal('')),
+  kode_kecamatan:   z.string()
+    .optional()
+    .or(z.literal(''))
+    .refine((code) => !code || /^\d{7}$/.test(code), 'Kode harus 7 digit atau kosongkan untuk dibuat otomatis'),
   nama_kecamatan:   z.string().min(2, 'Min 2 karakter').max(50, 'Maks 50 karakter'),
   jumlah_penduduk:  z.coerce.number().int('Harus bilangan bulat').min(1, 'Min 1').max(1000000, 'Maks 1.000.000'),
   laju_pertumbuhan: z.coerce.number().min(-5, 'Min -5').max(10, 'Maks 10'),
   luas_wilayah:     z.coerce.number().min(0.01, 'Min 0.01'),
-  jumlah_faskes:    z.coerce.number().int().min(0, 'Min 0').optional().default(0),
-  jumlah_rentan:    z.coerce.number().int().min(0, 'Min 0').optional().default(0),
+  jumlah_faskes:    z.coerce.number().int().min(0).optional().default(0),
+  jumlah_rentan:    z.coerce.number().int().min(0).optional().default(0),
   latitude:         z.coerce.number().min(-90, 'Min -90').max(90, 'Maks 90'),
   longitude:        z.coerce.number().min(-180, 'Min -180').max(180, 'Maks 180'),
 })
+
+const fieldLabels = {
+  kode_kecamatan: 'Kode kecamatan',
+  nama_kecamatan: 'Nama kecamatan',
+  jumlah_penduduk: 'Jumlah penduduk',
+  laju_pertumbuhan: 'Laju pertumbuhan',
+  luas_wilayah: 'Luas wilayah',
+  jumlah_faskes: 'Jumlah fasilitas kesehatan',
+  jumlah_rentan: 'Jumlah penduduk rentan',
+  latitude: 'Latitude',
+  longitude: 'Longitude',
+}
 
 export default function KecamatanFormPage() {
   const { id } = useParams()
   const isEdit = !!id
   const navigate = useNavigate()
   const addToast = useToast()
+  const [provinces, setProvinces] = useState([])
+  const [regencies, setRegencies] = useState([])
+  const [provinceCode, setProvinceCode] = useState('3500000')
+  const [regencyCode, setRegencyCode] = useState('3509000')
 
   const {
     register,
@@ -36,35 +55,92 @@ export default function KecamatanFormPage() {
     formState: { errors, isSubmitting },
   } = useForm({ resolver: zodResolver(schema) })
 
-  // Load data saat mode edit
+  useEffect(() => {
+    let active = true
+    api.get('/geography.php?action=provinces')
+      .then((response) => {
+        if (active) setProvinces(response.data.data)
+      })
+      .catch((error) => {
+        if (active) addToast({ message: error.response?.data?.message || 'Daftar provinsi gagal dimuat.', type: 'error' })
+      })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (!provinceCode) {
+      setRegencies([])
+      return undefined
+    }
+    let active = true
+    api.get('/geography.php?action=regencies', { params: { parent: provinceCode } })
+      .then((response) => {
+        if (!active) return
+        const list = response.data.data
+        setRegencies(list)
+        if (!isEdit && !list.some((regency) => regency.code === regencyCode) && list.length) {
+          setRegencyCode(list[0].code)
+        }
+      })
+      .catch((error) => {
+        if (active) addToast({ message: error.response?.data?.message || 'Daftar kabupaten/kota gagal dimuat.', type: 'error' })
+      })
+    return () => { active = false }
+  }, [provinceCode, isEdit])
+
   useEffect(() => {
     if (!isEdit) return
-    async function loadData() {
-      try {
-        const res = await api.get('/kecamatan.php')
-        const found = res.data.data.find((d) => String(d.id) === id)
-        if (found) reset(found)
-      } catch {
-        addToast({ message: 'Gagal memuat data.', type: 'error' })
-      }
-    }
-    loadData()
-  }, [id, isEdit]) // eslint-disable-line
+    let active = true
+    api.get('/kecamatan.php')
+      .then((response) => {
+        if (!active) return
+        const found = response.data.data.find((row) => String(row.id) === id)
+        if (!found) {
+          addToast({ message: 'Data kecamatan tidak ditemukan.', type: 'error' })
+          return
+        }
+        reset(found)
+        setRegencyCode(found.kode_kabupaten || '3509000')
+        setProvinceCode(`${(found.kode_kabupaten || '3509000').slice(0, 2)}00000`)
+      })
+      .catch((error) => {
+        if (active) addToast({ message: error.response?.data?.message || 'Gagal memuat data.', type: 'error' })
+      })
+    return () => { active = false }
+  }, [id, isEdit])
 
   async function onSubmit(values) {
+    const payload = {
+      ...values,
+      kode_kecamatan: values.kode_kecamatan?.trim() || '',
+      kode_kabupaten: regencyCode,
+      sumber_data: 'Input Admin',
+      tahun_data: new Date().getFullYear(),
+      aktif_di_peta: 1,
+    }
     try {
       if (isEdit) {
-        await api.put(`/kecamatan.php?id=${id}`, values)
+        await api.put(`/kecamatan.php?id=${id}`, payload)
         addToast({ message: 'Kecamatan berhasil diperbarui.', type: 'success' })
       } else {
-        await api.post('/kecamatan.php', values)
+        await api.post('/kecamatan.php', payload)
         addToast({ message: 'Kecamatan berhasil ditambahkan.', type: 'success' })
       }
       navigate('/admin/kecamatan')
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Terjadi kesalahan.'
-      addToast({ message: msg, type: 'error' })
+    } catch (error) {
+      const fieldErrors = error.response?.data?.data
+      const details = fieldErrors && typeof fieldErrors === 'object'
+        ? Object.entries(fieldErrors).map(([field, message]) => `${fieldLabels[field] || field}: ${message}`).join(' ')
+        : ''
+      addToast({ message: details || error.response?.data?.message || 'Terjadi kesalahan.', type: 'error' })
     }
+  }
+
+  function onInvalid(formErrors) {
+    const messages = Object.entries(formErrors)
+      .map(([field, error]) => `${fieldLabels[field] || field}: ${error.message || 'Periksa kembali nilai.'}`)
+      .join(' ')
+    addToast({ message: messages || 'Lengkapi data kecamatan dengan benar.', type: 'error' })
   }
 
   const fields = [
@@ -80,7 +156,6 @@ export default function KecamatanFormPage() {
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
-      {/* Header */}
       <div>
         <button
           onClick={() => navigate('/admin/kecamatan')}
@@ -94,18 +169,47 @@ export default function KecamatanFormPage() {
       </div>
 
       <Card>
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-          {/* Kode — hanya di mode create */}
+        <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="flex flex-col gap-5" noValidate>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Provinsi *</span>
+              <select
+                value={provinceCode}
+                onChange={(event) => {
+                  setProvinceCode(event.target.value)
+                  setRegencyCode('')
+                }}
+                className="w-full px-3 py-2 text-sm rounded-md border border-zinc-200 bg-white text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              >
+                {provinces.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Kabupaten/Kota induk *</span>
+              <select
+                value={regencyCode}
+                onChange={(event) => setRegencyCode(event.target.value)}
+                className={`w-full px-3 py-2 text-sm rounded-md border bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100 ${!regencyCode ? 'border-red-400 dark:border-red-500' : 'border-zinc-200 dark:border-zinc-700'}`}
+              >
+                <option value="">Pilih kabupaten/kota</option>
+                {regencies.map((regency) => <option key={regency.code} value={regency.code}>{regency.name}</option>)}
+              </select>
+              {!regencyCode && <span className="text-xs text-red-600">Pilih kabupaten/kota induk.</span>}
+            </label>
+          </div>
+
           {!isEdit && (
             <Input
               id="kode_kecamatan"
-              label="Kode Kecamatan"
+              label="Kode Kecamatan (opsional)"
               type="text"
-              placeholder="cth. 3509300"
+              placeholder="Kosongkan agar dibuat otomatis"
               error={errors.kode_kecamatan?.message}
               {...register('kode_kecamatan')}
             />
           )}
+
+          {isEdit && <input type="hidden" {...register('kode_kecamatan')} />}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {fields.map(({ name, label, type, placeholder, step, required }) => (
@@ -122,6 +226,10 @@ export default function KecamatanFormPage() {
             ))}
           </div>
 
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Data yang ditambahkan admin akan ditandai sebagai sumber admin. Statistik BPS yang tersedia tetap diprioritaskan; jika batas BIG tidak tersedia, peta memakai koordinat di atas.
+          </p>
+
           <div className="flex items-center justify-end gap-2 pt-2 divider">
             <Button
               type="button"
@@ -131,7 +239,7 @@ export default function KecamatanFormPage() {
             >
               Batal
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || !regencyCode}>
               {isSubmitting ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Tambah Kecamatan'}
             </Button>
           </div>

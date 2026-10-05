@@ -13,6 +13,10 @@ CREATE TABLE IF NOT EXISTS data_kecamatan (
     jumlah_rentan      INT            NOT NULL DEFAULT 0,
     latitude           DECIMAL(10,7)  NOT NULL DEFAULT 0,
     longitude          DECIMAL(10,7)  NOT NULL DEFAULT 0,
+    kode_kabupaten     CHAR(7)        NOT NULL DEFAULT '3509000',
+    sumber_data        VARCHAR(120)   NOT NULL DEFAULT 'Dataset lokal lama',
+    tahun_data         SMALLINT       NOT NULL DEFAULT 2024,
+    aktif_di_peta      TINYINT(1)     NOT NULL DEFAULT 1,
     created_at         TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
     updated_at         TIMESTAMP      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -22,6 +26,10 @@ ALTER TABLE data_kecamatan
     ADD COLUMN IF NOT EXISTS laju_pertumbuhan DECIMAL(5,2)  NOT NULL DEFAULT 0.00,
     ADD COLUMN IF NOT EXISTS latitude         DECIMAL(10,7) NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS longitude        DECIMAL(10,7) NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS kode_kabupaten   CHAR(7)       NOT NULL DEFAULT '3509000',
+    ADD COLUMN IF NOT EXISTS sumber_data      VARCHAR(120)  NOT NULL DEFAULT 'Dataset lokal lama',
+    ADD COLUMN IF NOT EXISTS tahun_data       SMALLINT      NOT NULL DEFAULT 2024,
+    ADD COLUMN IF NOT EXISTS aktif_di_peta    TINYINT(1)    NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS created_at       TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
     ADD COLUMN IF NOT EXISTS updated_at       TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
 
@@ -30,13 +38,17 @@ CREATE TABLE IF NOT EXISTS users (
     id            INT AUTO_INCREMENT PRIMARY KEY,
     username      VARCHAR(50)  NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    role          ENUM('admin', 'editor') NOT NULL DEFAULT 'admin',
+    role          ENUM('admin') NOT NULL DEFAULT 'admin',
     created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Migrasi aman untuk database lama yang belum memiliki role.
 ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS role ENUM('admin', 'editor') NOT NULL DEFAULT 'admin';
+    ADD COLUMN IF NOT EXISTS role ENUM('admin') NOT NULL DEFAULT 'admin';
+
+-- Keep previous editor accounts while removing the editor role.
+UPDATE users SET role = 'admin' WHERE role <> 'admin';
+ALTER TABLE users MODIFY COLUMN role ENUM('admin') NOT NULL DEFAULT 'admin';
 
 -- User default: admin / Admin123!
 -- Hash dibuat dengan password_hash('Admin123!', PASSWORD_BCRYPT)
@@ -57,6 +69,14 @@ CREATE TABLE IF NOT EXISTS team_members (
     position   VARCHAR(100) NOT NULL DEFAULT '',
     photo_path VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS external_data_cache (
+    cache_key  CHAR(64) PRIMARY KEY,
+    payload    LONGTEXT NOT NULL,
+    expires_at DATETIME NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_external_data_cache_expires (expires_at)
 );
 
 -- Data 31 kecamatan Kabupaten Jember (BPS 2024)
@@ -93,3 +113,6 @@ INSERT INTO data_kecamatan (kode_kecamatan, nama_kecamatan, jumlah_penduduk, laj
 ('3509290', 'Kaliwates',    125800,  1.87, 25.80, 16,  2800, -8.1543, 113.7089),
 ('3509300', 'Sumbersari',   132500,  2.13, 37.00, 14,  3100, -8.1621, 113.7234),
 ('3509310', 'Patrang',      102300,  1.65, 37.10, 11,  2900, -8.1312, 113.7012);
+
+-- Seed lokal lama tidak otomatis menjadi fallback peta sebelum diverifikasi admin.
+UPDATE data_kecamatan SET aktif_di_peta = 0 WHERE sumber_data = 'Dataset lokal lama';

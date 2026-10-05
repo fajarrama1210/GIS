@@ -1,11 +1,11 @@
-// Panel info hover di atas peta — menampilkan data kecamatan saat hover.
+// Panel info hover di atas peta — menampilkan statistik wilayah aktif.
 import { formatNumber, formatGrowth } from '@/lib/utils'
 
 export default function InfoPanel({ kecamatan }) {
   if (!kecamatan) {
     return (
       <div className="absolute top-3 left-3 z-[5] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-4 py-3 shadow-card text-xs text-zinc-400 pointer-events-none">
-        Arahkan kursor ke kecamatan
+        Arahkan kursor ke wilayah
       </div>
     )
   }
@@ -15,7 +15,7 @@ export default function InfoPanel({ kecamatan }) {
   return (
     <div className="absolute top-3 left-3 z-[5] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-4 py-3 shadow-card pointer-events-none min-w-[180px]">
       <p className="font-semibold text-sm text-zinc-900 dark:text-zinc-100 mb-2">
-        {kecamatan.nama_kecamatan}
+        {kecamatan.nama_wilayah || kecamatan.nama_kecamatan}
       </p>
       <div className="flex flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
         <div className="flex justify-between gap-6">
@@ -31,9 +31,15 @@ export default function InfoPanel({ kecamatan }) {
           </span>
         </div>
         <div className="flex justify-between gap-6">
-          <span>Luas</span>
-          <span>{kecamatan.luas_wilayah} km²</span>
+          <span>Kepadatan</span>
+          <span>{formatNumber(kecamatan.kepadatan_penduduk)} jiwa/km²</span>
         </div>
+        {kecamatan.sumber_data && (
+          <div className="flex justify-between gap-6">
+            <span>Sumber</span>
+            <span>{kecamatan.sumber_data}{kecamatan.tahun_data ? ` (${kecamatan.tahun_data})` : ''}</span>
+          </div>
+        )}
       </div>
     </div>
   )

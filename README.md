@@ -1,13 +1,14 @@
-# Data Penduduk Kabupaten Jember 2024
+# GIS Data Wilayah dan Kependudukan
 
-Aplikasi visualisasi data kependudukan 31 kecamatan Kabupaten Jember berbasis **React + Vite** (frontend) dan **PHP + MySQL** (backend).
+Aplikasi peta dan statistik wilayah Indonesia berbasis **React + Vite** (frontend) dan **PHP + MySQL** (backend). Data statistik diambil dari API resmi BPS; batas wilayah diambil sebagai GeoJSON dari layanan BIG.
 
 ## Fitur
 
-- **Peta choropleth interaktif** (Leaflet) — mode jumlah penduduk & laju pertumbuhan
+- **Peta choropleth interaktif** (Leaflet) — pilihan provinsi, kabupaten/kota, dan kecamatan
+- **Statistik kependudukan** — publikasi BPS dengan pelengkap input admin berlabel sumber/tahun bila nilai kecamatan tidak tersedia
 - **Grafik horizontal bar** (Chart.js) — perbandingan antar kecamatan
 - **Tabel data** — search, sort kolom, pagination client-side
-- **Panel admin** — CRUD kecamatan dan user, pengaturan role serta reset password
+- **Panel admin** — CRUD dataset kecamatan lokal, akun admin, reset password, dan pengaturan tim
 - **Section Tim** — foto dan informasi anggota tim yang dikelola admin
 - **Dark mode** — toggle, preferensi disimpan di localStorage
 
@@ -18,12 +19,14 @@ GIS/
 ├── backend/
 │   ├── koneksi.php
 │   ├── database.sql
-│   ├── jember_kecamatan.geojson
+│   ├── .env.example
 │   ├── api/
-│       ├── auth.php
-│       ├── users.php
-│       ├── team.php
-│       ├── kecamatan.php
+│   │   ├── auth.php
+│   │   ├── users.php
+│   │   ├── team.php
+│   │   ├── geography.php
+│   │   ├── _geography.php
+│   │   ├── kecamatan.php
 │   │   └── _middleware.php
 │   └── uploads/team/ (foto anggota tim)
 ├── frontend/
@@ -46,6 +49,7 @@ GIS/
 
 - **XAMPP** (PHP 8.1+, MySQL 8+, Apache)
 - **Node.js** 18+ dan npm
+- Token API BPS dari [API portal BPS](https://webapi.bps.go.id/developer/)
 
 ---
 
@@ -60,7 +64,9 @@ GIS/
    Jika database lama sudah berisi data, jangan impor ulang seluruh file karena data kecamatan di-seed ulang. Jalankan hanya migrasi berikut melalui phpMyAdmin:
 
    ```sql
-   ALTER TABLE users ADD COLUMN IF NOT EXISTS role ENUM('admin', 'editor') NOT NULL DEFAULT 'admin';
+   ALTER TABLE users ADD COLUMN IF NOT EXISTS role ENUM('admin') NOT NULL DEFAULT 'admin';
+   UPDATE users SET role = 'admin' WHERE role <> 'admin';
+   ALTER TABLE users MODIFY COLUMN role ENUM('admin') NOT NULL DEFAULT 'admin';
    CREATE TABLE IF NOT EXISTS team_settings (
      id TINYINT UNSIGNED PRIMARY KEY,
      team_name VARCHAR(100) NOT NULL,
@@ -73,6 +79,13 @@ GIS/
      position VARCHAR(100) NOT NULL DEFAULT '',
      photo_path VARCHAR(255) NOT NULL,
      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   );
+   CREATE TABLE IF NOT EXISTS external_data_cache (
+     cache_key CHAR(64) PRIMARY KEY,
+     payload LONGTEXT NOT NULL,
+     expires_at DATETIME NOT NULL,
+     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+     INDEX idx_external_data_cache_expires (expires_at)
    );
    ```
 
@@ -87,6 +100,14 @@ Jika kredensial MySQL berbeda, edit `backend/koneksi.php`:
 $user = "root";
 $pass = "";   // ganti sesuai password MySQL Anda
 ```
+
+Salin `backend/.env.example` menjadi `backend/.env`, lalu isi token API BPS yang diperoleh setelah mendaftar/login di [portal developer BPS](https://webapi.bps.go.id/developer/login):
+
+```env
+BPS_API_KEY=token_dari_portal_bps
+```
+
+Simpan token hanya di `backend/.env`. File ini diabaikan Git dan Docker; jangan menaruh token pada `frontend/.env`, karena variabel `VITE_*` ikut dimasukkan ke bundle browser.
 
 ### 3. Frontend React
 
@@ -112,7 +133,6 @@ Edit `frontend/.env` sesuai path XAMPP Anda:
 
 ```env
 VITE_API_URL=http://localhost/GIS/backend/api
-VITE_GEOJSON_URL=http://localhost/GIS/backend/jember_kecamatan.geojson
 ```
 
 ---
@@ -134,6 +154,19 @@ VITE_GEOJSON_URL=http://localhost/GIS/backend/jember_kecamatan.geojson
 **Frontend:** Vite + React 18, Tailwind CSS v3, React Router v6, react-leaflet, Chart.js, Axios, Zustand, react-hook-form + Zod, lucide-react
 
 **Backend:** PHP 8+, MySQL 8, Session-based auth, CSRF protection
+
+### Sumber dan cara kerja data wilayah
+
+- Kode wilayah resmi memakai kode MFD 7 digit dari BPS SIMDASI: level 26 (provinsi), 27 (kabupaten/kota), dan 28 (kecamatan). Daftar bersifat bertingkat sehingga pilihan berikutnya mengikuti induknya.
+- Daftar tabel statistik per wilayah dibaca melalui endpoint SIMDASI level 23. Data tabel dibaca melalui level 25 menggunakan `wilayah`, `id_tabel`, dan tahun terbaru yang mempunyai nilai jumlah penduduk. Implementasi mengirim parameter tahun dengan nama `tahun` sesuai respons endpoint yang diuji.
+- Atribut statistik yang ditampilkan mengikuti tabel resmi yang tersedia (jumlah penduduk, laju pertumbuhan, distribusi, kepadatan, dan rasio jenis kelamin). Tidak semua tabel/wilayah memiliki setiap nilai; nilai kosong ditampilkan sebagai tidak tersedia dan tidak dibuat dari data contoh.
+- Polygon kabupaten/kota dan kecamatan diambil dari layanan RBI BIG, dengan GeoJSON dibentuk melalui query feature layer. Pemetaan polygon ke kode BPS memakai nama wilayah karena kolom kode BPS pada sebagian feature BIG tidak terisi.
+- Respons eksternal disimpan sementara di tabel `external_data_cache` (kode wilayah 7 hari, data statistik 7 hari, batas BIG 30 hari). Untuk statistik kecamatan, data admin dapat melengkapi wilayah/nilai yang tidak tersedia dari BPS; data tersebut tetap diberi label sumber dan tahun, bukan dianggap sebagai publikasi BPS.
+- Default peta adalah Jawa Timur, tetapi daftar pilihan provinsi berasal dari API BPS. Polygon berasal dari [BIG RBI Batas Wilayah](https://geoservices.big.go.id/rbi/rest/services/BATASWILAYAH/), edisi layanan kecamatan/kabupaten yang diperiksa Juni 2026. Periksa ketentuan atribusi/penggunaan BIG sebelum memublikasikan ulang data geospasial.
+- CRUD “Data Kecamatan” mempertahankan form dan alur admin lama, dengan pilihan kabupaten/kota induk agar cakupan wilayah tidak terbatas pada Jember. Kode 7 digit boleh dikosongkan agar dibuat otomatis. Data BPS yang punya nilai tetap menjadi prioritas; input admin hanya mengisi kode/nilai yang belum tersedia dan ditandai sumber serta tahun. Data lokal lama dinonaktifkan sampai diverifikasi admin. Jika polygon BIG tidak cocok/tersedia, peta memakai titik dari koordinat admin.
+- Hanya ada satu role, `admin`. Migrasi mengubah user lama ber-role Editor menjadi Admin sebelum menghapus nilai role Editor.
+- Saat penyedia mengembalikan halaman WAF, API mencoba ulang lalu memakai cache resmi yang pernah berhasil diambil (jika tersedia), serta menandai data sementara pada UI. Untuk wilayah yang belum pernah berhasil diambil dan diblokir provider, aplikasi tetap menampilkan error; tidak ada angka buatan sebagai pengganti.
+- Input admin tidak mengubah publikasi/katalog BPS. Admin dapat menambahkan kecamatan pelengkap di bawah kabupaten/kota yang dipilih, lengkap dengan statistik, sumber, tahun, dan koordinat. Entri akan muncul di pemilih kecamatan dan peta ketika statistik BPS tidak tersedia untuk kodenya; polygon BIG dipakai jika tersedia dan cocok, jika tidak peta menunjukkan titik pada koordinat admin.
 
 ---
 
@@ -162,9 +195,10 @@ Repository ini menyediakan `Dockerfile` di root untuk membangun frontend dan men
    | `MYSQL_DATABASE` | `jember_db` |
    | `MYSQL_USER` | User MySQL yang diberikan Dokploy |
    | `MYSQL_PASSWORD` | Password untuk user tersebut |
+   | `BPS_API_KEY` | Token dari [portal developer BPS](https://webapi.bps.go.id/developer/) |
    | `VITE_API_URL` | `/backend/api` |
 
-4. Untuk database lama, jalankan migrasi role dan tabel tim dari bagian `users`, `team_settings`, dan `team_members` di `backend/database.sql`. Database baru mendapatkan seluruh tabel saat file tersebut diimpor.
+4. Untuk database lama, jalankan migrasi role, tabel tim, dan `external_data_cache` dari `backend/database.sql`. Database baru mendapatkan seluruh tabel saat file tersebut diimpor.
 5. Pastikan service aplikasi dapat menjangkau host database melalui jaringan Dokploy. Deploy aplikasi, lalu arahkan domain aplikasi ke container pada port `80` dan aktifkan HTTPS di Dokploy.
 6. Setelah masuk sebagai admin, gunakan halaman **Pengguna & Tim** untuk mengganti password bawaan (`admin` / `Admin123!`) dan menambahkan foto anggota tim.
 7. Aktifkan **Auto Deploy** untuk aplikasi dan hubungkan webhook GitHub jika Dokploy meminta. Push ke branch yang dipilih akan memicu build dan deployment ulang secara otomatis.

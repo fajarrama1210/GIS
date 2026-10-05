@@ -95,7 +95,7 @@ export default function KecamatanListPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
-                  {['No', 'Kecamatan', 'Penduduk', 'Laju (%)', 'Luas (km²)', 'Jumlah Faskes', 'Lat', 'Lng', 'Aksi'].map((h) => (
+                  {['No', 'Kecamatan', 'Penduduk', 'Laju (%)', 'Luas (km²)', 'Jumlah Faskes', 'Sumber', 'Lat', 'Lng', 'Aksi'].map((h) => (
                     <th
                       key={h}
                       className={`px-4 py-2.5 text-xs font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap ${
@@ -110,7 +110,7 @@ export default function KecamatanListPage() {
               <tbody>
                 {paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-sm text-zinc-400">
+                    <td colSpan={10} className="px-4 py-8 text-center text-sm text-zinc-400">
                       Tidak ada data yang cocok.
                     </td>
                   </tr>
@@ -134,6 +134,7 @@ export default function KecamatanListPage() {
                       </td>
                       <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{row.luas_wilayah}</td>
                       <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400 text-center">{row.jumlah_faskes ?? 0}</td>
+                      <td className="px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400">{row.sumber_data}</td>
                       <td className="px-4 py-3 text-zinc-400 text-xs font-mono">{row.latitude}</td>
                       <td className="px-4 py-3 text-zinc-400 text-xs font-mono">{row.longitude}</td>
                       <td className="px-4 py-3">

@@ -1,4 +1,4 @@
-// Kelola akun, role, password, dan konten tim.
+// Kelola akun admin, password, dan konten tim.
 import { useCallback, useEffect, useState } from 'react'
 import { Pencil, Plus, RefreshCw, Trash2, Upload, UsersRound, X } from 'lucide-react'
 import api from '@/lib/api'
@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/Toast'
 import useAuthStore from '@/stores/authStore'
 import { resolveApiAssetUrl } from '@/lib/utils'
 
-const emptyUser = { username: '', password: '', role: 'editor' }
+const emptyUser = { username: '', password: '' }
 const emptyMember = { name: '', position: '', photo: null }
 
 function requestError(error, fallback) {
@@ -57,7 +57,7 @@ export default function UsersPage() {
 
   function startEditUser(user) {
     setEditingUser(user)
-    setUserForm({ username: user.username, role: user.role, password: '' })
+    setUserForm({ username: user.username, password: '' })
   }
 
   function resetUserForm() {
@@ -69,7 +69,7 @@ export default function UsersPage() {
     event.preventDefault()
     setUserBusy(true)
     try {
-      const payload = { username: userForm.username, role: userForm.role }
+      const payload = { username: userForm.username }
       if (userForm.password) payload.password = userForm.password
       if (editingUser) {
         await api.put(`/users.php?id=${editingUser.id}`, payload)
@@ -174,7 +174,7 @@ export default function UsersPage() {
         <div>
           <p className="text-xs text-zinc-400 mb-1">Panel Admin</p>
           <h1 className="text-2xl font-serif font-semibold text-zinc-900 dark:text-zinc-100">Pengguna dan Tim</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Atur akun, hak akses, dan anggota tim yang ditampilkan di beranda.</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Kelola akun admin dan anggota tim yang ditampilkan di beranda.</p>
         </div>
         <Button variant="secondary" size="sm" onClick={loadData} disabled={loading}>
           <RefreshCw size={14} /> Muat ulang
@@ -206,18 +206,6 @@ export default function UsersPage() {
               autoComplete="off"
               required
             />
-            <div className="flex flex-col gap-1">
-              <label htmlFor="user-role" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Role</label>
-              <select
-                id="user-role"
-                value={userForm.role}
-                onChange={(event) => setUserForm({ ...userForm, role: event.target.value })}
-                className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-              >
-                <option value="editor">Editor</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
             <Input
               id="user-password"
               label={editingUser ? 'Password baru (opsional)' : 'Password awal'}
@@ -255,7 +243,7 @@ export default function UsersPage() {
               ) : users.map((user) => (
                 <tr key={user.id}>
                   <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">{user.username}</td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">{user.role === 'admin' ? 'Admin' : 'Editor'}</td>
+                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">Admin</td>
                   <td className="px-4 py-3 text-zinc-500">{new Date(user.created_at).toLocaleDateString('id-ID')}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">

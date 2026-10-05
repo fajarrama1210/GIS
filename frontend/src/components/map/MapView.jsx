@@ -6,7 +6,7 @@
 import { useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, useMap, LayersControl } from 'react-leaflet'
 import L from 'leaflet'
-import { formatNumber, formatGrowth } from '@/lib/utils'
+import { formatNumber, formatGrowth, getMapBreaks } from '@/lib/utils'
 import Legend from './Legend'
 
 const { BaseLayer } = LayersControl
@@ -15,44 +15,26 @@ const { BaseLayer } = LayersControl
    PALETTE & STYLE HELPERS
 ══════════════════════════════════════════════════════════════════════════ */
 
-/** Gradasi hijau untuk Jumlah Penduduk */
-function colorPenduduk(v) {
-  const n = Number(v) || 0
-  return n > 120000 ? '#14532d'
-       : n > 90000  ? '#166534'
-       : n > 70000  ? '#16a34a'
-       : n > 50000  ? '#4ade80'
-       : n > 30000  ? '#86efac'
-       :              '#d1fae5'
-}
-
-/** Diverging merah–kuning–hijau untuk Laju Pertumbuhan */
-function colorLaju(v) {
-  const n = Number(v) || 0
-  return n >  1.5 ? '#14532d'
-       : n >  0.8 ? '#16a34a'
-       : n >  0.2 ? '#86efac'
-       : n >= 0   ? '#fde68a'
-       : n > -0.3 ? '#fca5a5'
-       :            '#dc2626'
-}
-
-/** Normalisasi nama: lowercase + hapus semua spasi */
-const norm = (s) => (s || '').toLowerCase().replace(/\s+/g, '')
+const norm = (s) => (s || '').toLowerCase().replace(/^(kabupaten|kota)\s+/u, '').replace(/[^a-z0-9]/g, '')
 
 /** Cari baris DB berdasarkan properties GeoJSON */
 function findRow(props, data) {
   if (!props || !data || !data.length) return null
-  const key = norm(props.nama || props.namobj || props.name || '')
-  return data.find((d) => norm(d.nama_kecamatan) === key) || null
+  const code = props.kode_wilayah || props.KDCBPS || props.KDBBPS || props.KDPBPS
+  if (code) {
+    const matchedCode = data.find((row) => String(row.kode_wilayah) === String(code))
+    if (matchedCode) return matchedCode
+  }
+  const key = norm(props.nama_wilayah || props.nama || props.WADMKC || props.WADMKK || props.WADMPR || props.namobj || props.name || '')
+  return data.find((row) => norm(row.nama_wilayah || row.nama_kecamatan) === key) || null
 }
 
 /** Buat objek style Leaflet */
-function makeStyle(row, mode, highlight = false) {
-  const val  = mode === 'penduduk'
-    ? Number(row?.jumlah_penduduk)   || 0
-    : Number(row?.laju_pertumbuhan)  || 0
-  const fill = mode === 'penduduk' ? colorPenduduk(val) : colorLaju(val)
+function makeStyle(row, mode, breaks, highlight = false) {
+  const value = Number(mode === 'penduduk' ? row?.jumlah_penduduk : row?.laju_pertumbuhan)
+  const fill = row && Number.isFinite(value)
+    ? (breaks.find((item) => value <= item.max) || breaks[breaks.length - 1])?.color || '#d4d4d8'
+    : '#d4d4d8'
   return {
     fillColor  : fill,
     fillOpacity: highlight ? 0.95 : 0.80,
@@ -66,11 +48,17 @@ function makeStyle(row, mode, highlight = false) {
 function popupHtml(row) {
   const positif  = Number(row.laju_pertumbuhan) >= 0
   const lajuColor = positif ? '#16a34a' : '#dc2626'
+  const name = String(row.nama_wilayah || row.nama_kecamatan).replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char])
+  const source = String(row.sumber_data || '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char])
   return `
     <div style="font-family:Inter,sans-serif;min-width:190px;padding:4px 0">
       <p style="font-weight:700;font-size:13px;margin:0 0 10px;
                 color:#18181b;border-bottom:2px solid #e4e4e7;padding-bottom:8px">
-        ${row.nama_kecamatan}
+        ${name}
       </p>
       <table style="font-size:12px;width:100%;border-collapse:collapse;line-height:1.7">
         <tr>
@@ -86,17 +74,18 @@ function popupHtml(row) {
           </td>
         </tr>
         <tr>
-          <td style="color:#71717a">Luas Wilayah</td>
+          <td style="color:#71717a">Kepadatan</td>
           <td style="text-align:right;color:#3f3f46">
-            ${row.luas_wilayah} km²
+            ${formatNumber(row.kepadatan_penduduk)} jiwa/km²
           </td>
         </tr>
         <tr>
-          <td style="color:#71717a">Faskes</td>
+          <td style="color:#71717a">Rasio jenis kelamin</td>
           <td style="text-align:right;color:#3f3f46">
-            ${row.jumlah_faskes} unit
+            ${formatNumber(row.rasio_jenis_kelamin)}
           </td>
         </tr>
+        ${source ? `<tr><td style="color:#71717a">Sumber</td><td style="text-align:right;color:#3f3f46">${source}${row.tahun_data ? ` (${row.tahun_data})` : ''}</td></tr>` : ''}
       </table>
     </div>
   `
@@ -108,6 +97,7 @@ function popupHtml(row) {
 function ChoroplethLayer({ geojson, data, mode, onHover }) {
   const map      = useMap()
   const layerRef = useRef(null)
+  const breaks = getMapBreaks(data, mode)
 
   useEffect(() => {
     /* Selalu hapus layer lama sebelum membuat yang baru */
@@ -122,13 +112,24 @@ function ChoroplethLayer({ geojson, data, mode, onHover }) {
       /* ── Style tiap feature ──────────────────────────────────────── */
       style(feature) {
         const row = findRow(feature.properties, data)
-        return makeStyle(row, mode)
+        return makeStyle(row, mode, breaks)
+      },
+      pointToLayer(feature, latlng) {
+        const row = findRow(feature.properties, data)
+        return L.circleMarker(latlng, {
+          ...makeStyle(row, mode, breaks),
+          radius: 8,
+          weight: 2,
+        })
       },
 
       /* ── Event & tooltip per feature ─────────────────────────────── */
       onEachFeature(feature, fl) {
         const row      = findRow(feature.properties, data)
-        const geoLabel = feature.properties?.nama
+        const geoLabel = feature.properties?.nama_wilayah
+                      || feature.properties?.WADMKC
+                      || feature.properties?.WADMKK
+                      || feature.properties?.WADMPR
                       || feature.properties?.namobj
                       || feature.properties?.name
                       || '?'
@@ -143,12 +144,12 @@ function ChoroplethLayer({ geojson, data, mode, onHover }) {
 
         /* Hover */
         fl.on('mouseover', function () {
-          this.setStyle(makeStyle(row, mode, true))
+          this.setStyle(makeStyle(row, mode, breaks, true))
           this.openTooltip()
           if (onHover) onHover(row)
         })
         fl.on('mouseout', function () {
-          this.setStyle(makeStyle(row, mode, false))
+          this.setStyle(makeStyle(row, mode, breaks, false))
           if (onHover) onHover(null)
         })
 
@@ -178,7 +179,10 @@ function ChoroplethLayer({ geojson, data, mode, onHover }) {
         const tt = fl.getTooltip()
         if (!tt) return
         fl.unbindTooltip()
-        const geoLabel = fl.feature?.properties?.nama
+        const geoLabel = fl.feature?.properties?.nama_wilayah
+                       || fl.feature?.properties?.WADMKC
+                       || fl.feature?.properties?.WADMKK
+                       || fl.feature?.properties?.WADMPR
                        || fl.feature?.properties?.namobj
                        || fl.feature?.properties?.name
                        || ''
@@ -195,7 +199,7 @@ function ChoroplethLayer({ geojson, data, mode, onHover }) {
     map.on('zoomend', updateTooltips)
     updateTooltips() // run once
 
-    /* Fit ke batas Kabupaten Jember */
+    /* Zoom to the selected administrative boundary features. */
     const bounds = layer.getBounds()
     if (bounds.isValid()) {
       map.fitBounds(bounds, { padding: [10, 10] })
@@ -222,9 +226,9 @@ export default function MapView({ geojson, data, mode = 'penduduk', onHover }) {
 
   return (
     <MapContainer
-      center={[-8.17, 113.7]}
-      zoom={10}
-      minZoom={9}
+      center={[-7.5, 112.5]}
+      zoom={6}
+      minZoom={4}
       maxZoom={16}
       className="h-full w-full z-0"
       scrollWheelZoom={true}
@@ -256,7 +260,7 @@ export default function MapView({ geojson, data, mode = 'penduduk', onHover }) {
       )}
 
       {/* ── Legend ───────────────────────────────────────────── */}
-      <Legend mode={mode} />
+      <Legend mode={mode} data={data} />
     </MapContainer>
   )
 }

@@ -22,3 +22,4 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-jember_db}
       MYSQL_USER: ${MYSQL_USER:?Set MYSQL_USER in Dokploy}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in Dokploy}
+      BPS_API_KEY: ${BPS_API_KEY:-}

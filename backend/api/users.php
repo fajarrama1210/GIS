@@ -54,13 +54,6 @@ function validateUsername($username): string {
     return $username;
 }
 
-function validateRole($role): string {
-    if (!in_array($role, ['admin', 'editor'], true)) {
-        jsonResponse(['success' => false, 'message' => 'Role harus admin atau editor.', 'data' => null], 422);
-    }
-    return $role;
-}
-
 function validatePassword($password): string {
     if (!is_string($password)
         || strlen($password) < 8
@@ -108,7 +101,6 @@ function ensureAdminRemains(mysqli $conn, int $userId): void {
 
 if ($method === 'POST') {
     $username = validateUsername($body['username'] ?? null);
-    $role = validateRole($body['role'] ?? null);
     $password = validatePassword($body['password'] ?? null);
 
     $stmt = $conn->prepare("SELECT id FROM users WHERE username = ? LIMIT 1");
@@ -119,8 +111,8 @@ if ($method === 'POST') {
     }
 
     $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-    $stmt = $conn->prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)");
-    $stmt->bind_param('sss', $username, $passwordHash, $role);
+    $stmt = $conn->prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'admin')");
+    $stmt->bind_param('ss', $username, $passwordHash);
     executeUserMutation($stmt);
     jsonResponse(['success' => true, 'message' => 'User berhasil ditambahkan.', 'data' => ['id' => $conn->insert_id]], 201);
 }
@@ -132,7 +124,6 @@ if (!$id || $id < 1) {
 
 if ($method === 'PUT') {
     $username = validateUsername($body['username'] ?? null);
-    $role = validateRole($body['role'] ?? null);
     $password = $body['password'] ?? '';
     if ($password !== '' && !is_string($password)) {
         jsonResponse(['success' => false, 'message' => 'Password tidak valid.', 'data' => null], 422);
@@ -145,21 +136,14 @@ if ($method === 'PUT') {
         jsonResponse(['success' => false, 'message' => 'Username sudah digunakan.', 'data' => null], 409);
     }
 
-    if ((int) $_SESSION['user_id'] === $id && $role !== 'admin') {
-        jsonResponse(['success' => false, 'message' => 'Role admin untuk akun yang sedang digunakan tidak dapat diubah.', 'data' => null], 409);
-    }
-    if ($role !== 'admin') {
-        ensureAdminRemains($conn, (int) $id);
-    }
-
     if ($password !== '') {
         $password = validatePassword($password);
         $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-        $stmt = $conn->prepare("UPDATE users SET username = ?, role = ?, password_hash = ? WHERE id = ?");
-        $stmt->bind_param('sssi', $username, $role, $passwordHash, $id);
+        $stmt = $conn->prepare("UPDATE users SET username = ?, role = 'admin', password_hash = ? WHERE id = ?");
+        $stmt->bind_param('ssi', $username, $passwordHash, $id);
     } else {
-        $stmt = $conn->prepare("UPDATE users SET username = ?, role = ? WHERE id = ?");
-        $stmt->bind_param('ssi', $username, $role, $id);
+        $stmt = $conn->prepare("UPDATE users SET username = ?, role = 'admin' WHERE id = ?");
+        $stmt->bind_param('si', $username, $id);
     }
     executeUserMutation($stmt);
     if ($stmt->affected_rows === 0) {

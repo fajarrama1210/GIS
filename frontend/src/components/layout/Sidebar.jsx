@@ -29,7 +29,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="h-14 flex items-center gap-2 px-5 border-b border-zinc-200 dark:border-zinc-800">
         <Map size={16} className="text-jember-600" />
-        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Jember Penduduk</span>
+        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">GIS Wilayah</span>
       </div>
 
       {/* Nav */}
