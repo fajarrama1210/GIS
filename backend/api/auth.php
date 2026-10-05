@@ -4,10 +4,16 @@
 require_once __DIR__ . '/../koneksi.php';
 require_once __DIR__ . '/_middleware.php';
 
-// CORS — izinkan hanya origin dev Vite
-$allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+// CORS — izinkan origin dev Vite dan domain production
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-if (in_array($origin, $allowedOrigins)) {
+$host   = $_SERVER['HTTP_HOST'] ?? '';
+$allowedOrigins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://' . $host,
+    'https://' . $host,
+];
+if ($origin !== '' && in_array($origin, $allowedOrigins, true)) {
     header("Access-Control-Allow-Origin: {$origin}");
     header('Access-Control-Allow-Credentials: true');
     header('Access-Control-Allow-Headers: Content-Type, X-CSRF-Token');
