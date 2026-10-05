@@ -80,10 +80,24 @@ export default function HomePage() {
     let active = true
     api.get('/team.php')
       .then((response) => {
-        if (active) setTeam(response.data.data)
+        const teamData = response.data?.data
+        if (
+          !teamData
+          || typeof teamData !== 'object'
+          || Array.isArray(teamData)
+          || !Array.isArray(teamData.members)
+        ) {
+          throw new Error('Respons API informasi tim tidak valid.')
+        }
+        if (active) setTeam(teamData)
       })
-      .catch(() => {
-        if (active) setTeamError('Informasi tim tidak dapat dimuat saat ini.')
+      .catch((requestError) => {
+        if (!active) return
+        setTeamError(
+          requestError instanceof Error && requestError.message.startsWith('Respons API')
+            ? requestError.message
+            : 'Informasi tim tidak dapat dimuat saat ini.',
+        )
       })
     return () => { active = false }
   }, [])
@@ -257,7 +271,7 @@ export default function HomePage() {
         </div>
         {teamError ? (
           <p role="status" className="text-sm text-zinc-500 dark:text-zinc-400">{teamError}</p>
-        ) : team?.members.length ? (
+        ) : team?.members?.length ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {team.members.map((member) => (
               <Card key={member.id} className="flex flex-col items-center gap-3 text-center">
