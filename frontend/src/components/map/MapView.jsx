@@ -378,9 +378,21 @@ function AutoFitBounds({ geojson, data }) {
 }
 
 /* ════════════════ MAIN EXPORT ════════════════ */
-export default function MapView({ geojson, data, mode = 'penduduk', onHover }) {
-  const hasData   = data && data.length > 0
+/**
+ * @param {object}   geojson   - GeoJSON FeatureCollection batas wilayah
+ * @param {Array}    data      - Array data statistik wilayah
+ * @param {string}   mode      - 'penduduk' | 'laju'
+ * @param {function} onHover   - callback saat hover kecamatan
+ * @param {string}   regency   - kode kabupaten terpilih ('' = semua)
+ * @param {string}   district  - kode kecamatan terpilih ('' = semua)
+ */
+export default function MapView({ geojson, data, mode = 'penduduk', onHover, regency = '', district = '' }) {
+  const hasData    = data && data.length > 0
   const hasGeojson = geojson && geojson.features && geojson.features.length > 0
+
+  // Sembunyikan batas provinsi seluruh Indonesia saat sudah ada filter
+  // kabupaten atau kecamatan (peta fokus pada choropleth wilayah spesifik)
+  const showProvinsiLayer = !regency && !district
 
   return (
     <MapContainer
@@ -406,8 +418,8 @@ export default function MapView({ geojson, data, mode = 'penduduk', onHover }) {
         </BaseLayer>
       </LayersControl>
 
-      {/* Layer 0: Batas Seluruh Provinsi di Indonesia dari indonesia-prov.geojson */}
-      <ProvinsiLayer data={data} />
+      {/* Layer 0: Batas Seluruh Provinsi di Indonesia — hanya tampil saat belum ada filter spesifik */}
+      {showProvinsiLayer && <ProvinsiLayer data={data} />}
 
       {/* Layer 1: Choropleth Poligon Kecamatan */}
       {hasGeojson && hasData && (

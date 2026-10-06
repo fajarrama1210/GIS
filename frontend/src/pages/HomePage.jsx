@@ -48,6 +48,12 @@ export default function HomePage() {
   const [team, setTeam] = useState(null)
   const [teamError, setTeamError] = useState('')
 
+  // Reset mapMode ke 'penduduk' setiap kali filter wilayah berubah
+  // supaya peta langsung tampil data yang relevan tanpa perlu klik tombol toggle
+  useEffect(() => {
+    setMapMode('penduduk')
+  }, [geography.province, geography.regency, geography.district])
+
   const stats = useMemo(() => {
     const populated = data.filter((row) => Number.isFinite(row.jumlah_penduduk))
     const growthRows = data.filter((row) => Number.isFinite(row.laju_pertumbuhan))
@@ -156,36 +162,73 @@ export default function HomePage() {
           Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
         ) : stats ? (
           <>
-            <StatCard
-              icon={Users}
-              label="Total Penduduk"
-              value={formatNumber(stats.total)}
-              sub={stats.populatedCount === data.length
-                ? `jiwa di ${data.length} wilayah`
-                : `nilai tersedia untuk ${stats.populatedCount} dari ${data.length} wilayah`}
-              accent="bg-jember-600"
-            />
-            <StatCard
-              icon={MapPin}
-              label="Penduduk Terbanyak"
-              value={stats.terpadat.nama_wilayah}
-              sub={`${formatNumber(stats.terpadat.jumlah_penduduk)} jiwa`}
-              accent="bg-amber-500"
-            />
-            <StatCard
-              icon={TrendingUp}
-              label="Pertumbuhan Tertinggi"
-              value={stats.tercepat?.nama_wilayah || '-'}
-              sub={formatGrowth(stats.tercepat?.laju_pertumbuhan)}
-              accent="bg-jember-700"
-            />
-            <StatCard
-              icon={TrendingDown}
-              label="Wilayah Menyusut"
-              value={`${stats.negatif} wilayah`}
-              sub={`dari ${data.length} wilayah`}
-              accent="bg-red-500"
-            />
+            {data.length === 1 ? (
+              // Mode kecamatan tunggal: tampilkan detail spesifik satu wilayah
+              <>
+                <StatCard
+                  icon={Users}
+                  label="Jumlah Penduduk"
+                  value={formatNumber(data[0].jumlah_penduduk)}
+                  sub={`jiwa di ${data[0].nama_wilayah || data[0].nama_kecamatan || 'kecamatan ini'}`}
+                  accent="bg-jember-600"
+                />
+                <StatCard
+                  icon={TrendingUp}
+                  label="Laju Pertumbuhan"
+                  value={formatGrowth(data[0].laju_pertumbuhan)}
+                  sub={Number(data[0].laju_pertumbuhan) >= 0 ? 'Tumbuh positif' : 'Mengalami penyusutan'}
+                  accent={Number(data[0].laju_pertumbuhan) >= 0 ? 'bg-jember-700' : 'bg-red-500'}
+                />
+                <StatCard
+                  icon={MapPin}
+                  label="Kepadatan Penduduk"
+                  value={`${formatNumber(data[0].kepadatan_penduduk)} jiwa/km²`}
+                  sub="Kepadatan wilayah ini"
+                  accent="bg-amber-500"
+                />
+                <StatCard
+                  icon={Users}
+                  label="Rasio Jenis Kelamin"
+                  value={formatNumber(data[0].rasio_jenis_kelamin)}
+                  sub="Laki-laki per 100 perempuan"
+                  accent="bg-purple-600"
+                />
+              </>
+            ) : (
+              // Mode multi-wilayah: tampilkan statistik komparatif
+              <>
+                <StatCard
+                  icon={Users}
+                  label="Total Penduduk"
+                  value={formatNumber(stats.total)}
+                  sub={stats.populatedCount === data.length
+                    ? `jiwa di ${data.length} wilayah`
+                    : `nilai tersedia untuk ${stats.populatedCount} dari ${data.length} wilayah`}
+                  accent="bg-jember-600"
+                />
+                <StatCard
+                  icon={MapPin}
+                  label="Penduduk Terbanyak"
+                  value={stats.terpadat.nama_wilayah}
+                  sub={`${formatNumber(stats.terpadat.jumlah_penduduk)} jiwa`}
+                  accent="bg-amber-500"
+                />
+                <StatCard
+                  icon={TrendingUp}
+                  label="Pertumbuhan Tertinggi"
+                  value={stats.tercepat?.nama_wilayah || '-'}
+                  sub={formatGrowth(stats.tercepat?.laju_pertumbuhan)}
+                  accent="bg-jember-700"
+                />
+                <StatCard
+                  icon={TrendingDown}
+                  label="Wilayah Menyusut"
+                  value={`${stats.negatif} wilayah`}
+                  sub={`dari ${data.length} wilayah`}
+                  accent="bg-red-500"
+                />
+              </>
+            )}
           </>
         ) : <p className="col-span-full text-sm text-zinc-500">Statistik belum tersedia untuk wilayah ini.</p>}
       </section>
@@ -209,6 +252,8 @@ export default function HomePage() {
               data={data}
               mode={mapMode}
               onHover={handleHover}
+              regency={geography.regency}
+              district={geography.district}
             />
             <InfoPanel kecamatan={hoveredKec} />
           </div>
