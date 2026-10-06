@@ -4,6 +4,9 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+// Lepas session lock segera agar request PHP bisa berjalan paralel.
+// Data $_SESSION tetap bisa dibaca; gunakan reopenSession() untuk menulis.
+session_write_close();
 
 // CORS Headers
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
@@ -25,6 +28,16 @@ if ($origin !== '' && in_array($origin, $allowedOrigins, true)) {
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
+}
+
+/**
+ * Buka kembali session untuk menulis (setelah session_write_close di atas).
+ * Panggil ini sebelum menulis ke $_SESSION.
+ */
+function reopenSession(): void {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
 }
 
 /**
@@ -54,7 +67,9 @@ function requireAdmin(): void {
         jsonResponse(['success' => false, 'message' => 'Akses khusus admin.', 'data' => null], 403);
     }
 
+    reopenSession();
     $_SESSION['role'] = $user['role'];
+    session_write_close();
 }
 
 /**

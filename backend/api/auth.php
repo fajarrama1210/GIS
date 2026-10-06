@@ -84,12 +84,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'login') {
     }
 
     // Buat sesi baru (hindari session fixation)
+    reopenSession();
     session_regenerate_id(true);
     $_SESSION['user_id']  = $user['id'];
     $_SESSION['username'] = $user['username'];
-    $_SESSION['role']    = $user['role'];
-
+    $_SESSION['role']     = $user['role'];
     $csrfToken = generateCsrfToken();
+    session_write_close();
 
     jsonResponse([
         'success' => true,
@@ -105,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'login') {
 
 // ------- POST /api/auth.php?action=logout -------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'logout') {
+    reopenSession();
     session_destroy();
     jsonResponse(['success' => true, 'message' => 'Logout berhasil.', 'data' => null]);
 }
