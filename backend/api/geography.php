@@ -69,6 +69,9 @@ $action = $_GET['action'] ?? '';
 
 /* ── provinces ───────────────────────────────────────────────────────────── */
 if ($action === 'provinces') {
+    // Provinsi sangat jarang berubah — cache browser 12 jam
+    header('Cache-Control: public, max-age=43200, stale-while-revalidate=3600');
+    header('Vary: Accept-Encoding');
     // TTL 12 jam — daftar provinsi sangat jarang berubah
     sendCached(['success' => true, 'message' => 'OK', 'data' => bpsRegionList('province')], 43200);
 }
@@ -79,6 +82,9 @@ if ($action === 'regencies') {
     if (!preg_match('/^\d{7}$/', $parent)) {
         geographyError('Kode provinsi tidak valid.', 400);
     }
+    // Cache browser 12 jam
+    header('Cache-Control: public, max-age=43200, stale-while-revalidate=3600');
+    header('Vary: Accept-Encoding');
     // Tidak perlu validasi ulang bpsRegionList('province') — kode sudah divalidasi format
     sendCached([
         'success' => true,
