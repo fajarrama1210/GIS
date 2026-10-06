@@ -23,19 +23,7 @@ CREATE TABLE IF NOT EXISTS data_kecamatan (
     updated_at         TIMESTAMP      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Migrasi: tambah kolom baru jika belum ada (aman dijalankan ulang)
-ALTER TABLE data_kecamatan
-    ADD COLUMN IF NOT EXISTS provinsi         VARCHAR(100)  NOT NULL DEFAULT 'JAWA TIMUR',
-    ADD COLUMN IF NOT EXISTS kabupaten        VARCHAR(100)  NOT NULL DEFAULT 'Kabupaten Jember',
-    ADD COLUMN IF NOT EXISTS laju_pertumbuhan DECIMAL(5,2)  NOT NULL DEFAULT 0.00,
-    ADD COLUMN IF NOT EXISTS latitude         DECIMAL(10,7) NOT NULL DEFAULT 0,
-    ADD COLUMN IF NOT EXISTS longitude        DECIMAL(10,7) NOT NULL DEFAULT 0,
-    ADD COLUMN IF NOT EXISTS kode_kabupaten   CHAR(7)       NOT NULL DEFAULT '3509000',
-    ADD COLUMN IF NOT EXISTS sumber_data      VARCHAR(120)  NOT NULL DEFAULT 'Dataset lokal lama',
-    ADD COLUMN IF NOT EXISTS tahun_data       SMALLINT      NOT NULL DEFAULT 2024,
-    ADD COLUMN IF NOT EXISTS aktif_di_peta    TINYINT(1)    NOT NULL DEFAULT 0,
-    ADD COLUMN IF NOT EXISTS created_at       TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
-    ADD COLUMN IF NOT EXISTS updated_at       TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+-- (Bagian ALTER TABLE data_kecamatan dihapus karena CREATE TABLE di atas sudah mencakup semua kolom, dan mencegah syntax error di MySQL versi lama)
 
 -- Tabel users untuk autentikasi admin
 CREATE TABLE IF NOT EXISTS users (
@@ -46,13 +34,7 @@ CREATE TABLE IF NOT EXISTS users (
     created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 );
 
--- Migrasi aman untuk database lama yang belum memiliki role.
-ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS role ENUM('admin') NOT NULL DEFAULT 'admin';
-
--- Keep previous editor accounts while removing the editor role.
-UPDATE users SET role = 'admin' WHERE role <> 'admin';
-ALTER TABLE users MODIFY COLUMN role ENUM('admin') NOT NULL DEFAULT 'admin';
+-- (Bagian ALTER TABLE users dihapus karena kolom role sudah ada di CREATE TABLE)
 
 -- User default: admin / Admin123!
 -- Hash dibuat dengan password_hash('Admin123!', PASSWORD_BCRYPT)
