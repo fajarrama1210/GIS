@@ -260,40 +260,43 @@ export default function HomePage() {
         </Card>
       </section>
 
-      {/* Grafik */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-serif font-semibold text-zinc-900 dark:text-zinc-100">
-            Grafik Perbandingan
-          </h2>
-          <ChartToggle options={CHART_OPTIONS} value={chartMode} onChange={setChartMode} />
-        </div>
-        <Card>
-          {loading ? (
-            <div className="h-[420px] skeleton rounded" />
-          ) : (
-            <div className="h-[420px]">
-              {chartMode === 'penduduk' ? (
-                <BarChart
-                  labels={sortedPenduduk.map((d) => d.nama_kecamatan)}
-                  values={sortedPenduduk.map((d) => d.jumlah_penduduk)}
-                  color="#16a34a"
-                  label="Jumlah Penduduk"
-                  formatter={(v) => `${v.toLocaleString('id-ID')} jiwa`}
-                />
-              ) : (
-                <BarChart
-                  labels={sortedLaju.map((d) => d.nama_kecamatan)}
-                  values={sortedLaju.map((d) => d.laju_pertumbuhan)}
-                  color="#f59e0b"
-                  label="Laju Pertumbuhan (%)"
-                  formatter={(v) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`}
-                />
-              )}
-            </div>
-          )}
-        </Card>
-      </section>
+      {/* Grafik — hanya tampil saat ada lebih dari 1 wilayah (multi-wilayah),
+           disembunyikan saat filter kecamatan spesifik dipilih */}
+      {data.length !== 1 && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-serif font-semibold text-zinc-900 dark:text-zinc-100">
+              Grafik Perbandingan
+            </h2>
+            <ChartToggle options={CHART_OPTIONS} value={chartMode} onChange={setChartMode} />
+          </div>
+          <Card>
+            {loading ? (
+              <div className="h-[420px] skeleton rounded" />
+            ) : (
+              <div className="h-[420px]">
+                {chartMode === 'penduduk' ? (
+                  <BarChart
+                    labels={sortedPenduduk.map((d) => d.nama_kecamatan)}
+                    values={sortedPenduduk.map((d) => d.jumlah_penduduk)}
+                    color="#16a34a"
+                    label="Jumlah Penduduk"
+                    formatter={(v) => `${v.toLocaleString('id-ID')} jiwa`}
+                  />
+                ) : (
+                  <BarChart
+                    labels={sortedLaju.map((d) => d.nama_kecamatan)}
+                    values={sortedLaju.map((d) => d.laju_pertumbuhan)}
+                    color="#f59e0b"
+                    label="Laju Pertumbuhan (%)"
+                    formatter={(v) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`}
+                  />
+                )}
+              </div>
+            )}
+          </Card>
+        </section>
+      )}
 
       {/* Tabel */}
       <section>
