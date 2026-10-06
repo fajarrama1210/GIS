@@ -1,7 +1,31 @@
 <?php
 // Middleware: helper fungsi auth, CSRF, response, dan validasi input.
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// CORS Headers
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$host   = $_SERVER['HTTP_HOST'] ?? '';
+$allowedOrigins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://' . $host,
+    'https://' . $host,
+    'https://gis.sakti.sch.id'
+];
+if ($origin !== '' && in_array($origin, $allowedOrigins, true)) {
+    header("Access-Control-Allow-Origin: {$origin}");
+    header('Access-Control-Allow-Credentials: true');
+    header('Access-Control-Allow-Headers: Content-Type, X-CSRF-Token');
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE');
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
 
 /**
  * Wajib login — kirim 401 jika tidak ada sesi aktif.
